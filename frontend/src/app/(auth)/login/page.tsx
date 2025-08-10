@@ -1,3 +1,4 @@
+/*
 import { LogoIcon } from '@/components/logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -134,4 +135,17 @@ export default function LoginPage() {
             </form>
         </section>
     )
+}
+
+*/
+
+
+import LoginForm from "@/components/ui/auth/login-form";
+
+export default function LoginPage() {
+    return (
+        // <section className="flex min-h-full bg-zinc-50 px-4 py-16 md:py-32 dark:bg-transparent">
+            <LoginForm />
+        // </section>
+    );
 }

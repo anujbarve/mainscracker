@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { clientSignOut } from "@/lib/client-actions"
+import { IconLogout } from "@tabler/icons-react"
 
 export function SiteHeader() {
   return (
@@ -22,6 +24,16 @@ export function SiteHeader() {
             >
               GitHub
             </a>
+          </Button>
+          <Button 
+            type="button"
+            onClick={clientSignOut}
+            variant="outline" 
+            size="sm" 
+            className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 hover:border-red-300"
+          >
+            <IconLogout className="size-4 mr-1" />
+            Logout
           </Button>
         </div>
       </div>

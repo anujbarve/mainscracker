@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider"
+import ConfigureAmplifyClientSide from "./amplify-cognito-config";
+
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -18,6 +20,7 @@ export default function RootLayout({
       <html lang="en" suppressHydrationWarning>
         <head />
         <body>
+          <ConfigureAmplifyClientSide />
           <ThemeProvider
             attribute="class"
             defaultTheme="system"

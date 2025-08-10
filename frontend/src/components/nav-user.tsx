@@ -7,6 +7,7 @@ import {
   IconNotification,
   IconUserCircle,
 } from "@tabler/icons-react"
+import { clientSignOut } from "@/lib/client-actions"
 
 import {
   Avatar,
@@ -98,7 +99,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={clientSignOut}>
               <IconLogout />
               Log out
             </DropdownMenuItem>

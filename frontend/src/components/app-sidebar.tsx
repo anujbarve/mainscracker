@@ -17,12 +17,14 @@ import {
   IconSearch,
   IconSettings,
   IconUsers,
+  IconLogout,
 } from "@tabler/icons-react"
 
 import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
+import { clientSignOut } from "@/lib/client-actions"
 import {
   Sidebar,
   SidebarContent,
@@ -172,6 +174,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavMain items={data.navMain} />
         <NavDocuments items={data.documents} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <div className="px-3 py-2">
+          <button
+            type="button"
+            onClick={clientSignOut}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700"
+          >
+            <IconLogout className="size-4" />
+            Logout
+          </button>
+        </div>
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />
