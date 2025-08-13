@@ -1,10 +1,10 @@
 'use client'
 import { Logo } from '@/components/logo'
-import { Button } from '@/components/ui/button'
-import { ArrowRight, Mail, Menu, SendHorizonal, X } from 'lucide-react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Menu, X } from 'lucide-react'
+import Image from 'next/image'
 import { ModeToggle } from './theme-toggle'
 
 const menuItems = [
@@ -28,8 +28,8 @@ export default function HeroSection() {
                                 <Link
                                     href="/"
                                     aria-label="home"
-                                    className="flex items-center space-x-2">
-                                    <Logo />
+                                    className="flex items-center">
+                                    <h1><b>EXAMPREP</b></h1>
                                 </Link>
 
                                 <button
@@ -65,7 +65,6 @@ export default function HeroSection() {
                                             <span>Login</span>
                                         </Link>
                                     </Button>
-
                                     <ModeToggle></ModeToggle>
                                 </div>
                             </div>
@@ -75,51 +74,75 @@ export default function HeroSection() {
             </header>
 
             <main>
-                <section className="overflow-hidden">
-                    <div className="relative mx-auto max-w-5xl px-6 py-28 lg:py-20">
-                        <div className="lg:flex lg:items-center lg:gap-12">
-                            <div className="relative z-10 mx-auto max-w-xl text-center lg:ml-0 lg:w-1/2 lg:text-left">
-                                <Link
-                                    href="/"
-                                    className="rounded-(--radius) mx-auto flex w-fit items-center gap-2 border p-1 pr-3 lg:ml-0">
-                                    <span className="bg-muted rounded-[calc(var(--radius)-0.25rem)] px-2 py-1 text-xs">New</span>
-                                    <span className="text-sm">Read our brand new blogs</span>
-                                    <span className="bg-(--color-border) block h-4 w-px"></span>
+                <div
+                    aria-hidden
+                    className="z-2 absolute inset-0 isolate hidden opacity-50 contain-strict lg:block">
+                    <div className="w-140 h-320 -translate-y-87.5 absolute left-0 top-0 -rotate-45 rounded-full bg-[radial-gradient(68.54%_68.72%_at_55.02%_31.46%,hsla(0,0%,85%,.08)_0,hsla(0,0%,55%,.02)_50%,hsla(0,0%,45%,0)_80%)]" />
+                    <div className="h-320 absolute left-0 top-0 w-60 -rotate-45 rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,hsla(0,0%,85%,.06)_0,hsla(0,0%,45%,.02)_80%,transparent_100%)] [translate:5%_-50%]" />
+                    <div className="h-320 -translate-y-87.5 absolute left-0 top-0 w-60 -rotate-45 bg-[radial-gradient(50%_50%_at_50%_50%,hsla(0,0%,85%,.04)_0,hsla(0,0%,45%,.02)_80%,transparent_100%)]" />
+                </div>
 
-                                    <ArrowRight className="size-4" />
+                <section className="overflow-hidden bg-white dark:bg-transparent">
+                    <div className="relative mx-auto max-w-5xl px-6 py-28 lg:py-24">
+                        <div className="relative z-10 mx-auto max-w-2xl text-center">
+                            <h1 className="text-balance text-4xl font-semibold md:text-5xl lg:text-6xl">Modern Software testing reimagined</h1>
+                            <p className="mx-auto my-8 max-w-2xl text-xl">Officiis laudantium excepturi ducimus rerum dignissimos, and tempora nam vitae, excepturi ducimus iste provident dolores.</p>
+
+                            <Button
+                                asChild
+                                size="lg">
+                                <Link href="#">
+                                    <span className="btn-label">Start Building</span>
                                 </Link>
-
-                                <h1 className="mt-10 text-balance text-4xl font-bold md:text-5xl xl:text-5xl">Ace your Exams with Expert Feedback</h1>
-                                <p className="mt-8"> Get personalized feedback on your practice exams from experienced educators. Improve your scores and gain confidence with ExamPrep.</p>
-
-                                <div>
-
-
-                                    <ul className="list-inside list-disc space-y-2 mt-7">
-                                        <li>Faster</li>
-                                        <li>Modern</li>
-                                        <li>Highly Accurate</li>
-                                    </ul>
-                                </div>
-                            </div>
+                            </Button>
                         </div>
-                        <div className="absolute inset-0 -mx-4 rounded-3xl p-3 lg:col-span-3">
-                            <div className="relative">
-                                <div className="bg-radial-[at_65%_25%] to-background z-1 -inset-17 absolute from-transparent to-40%"></div>
-                                <Image
-                                    className="hidden dark:block"
-                                    src="https://images.pexels.com/photos/1000738/pexels-photo-1000738.jpeg"
-                                    alt="app illustration"
-                                        width={2796}
-                                        height={2008}
-                                />
-                                <Image
-                                    className="dark:hidden"
-                                    src="https://images.pexels.com/photos/1432878/pexels-photo-1432878.jpeg"
-                                    alt="app illustration"
-                                    width={2796}
-                                    height={2008}
-                                />
+                    </div>
+
+                    <div className="mx-auto -mt-16 max-w-7xl">
+                        <div className="perspective-distant -mr-16 pl-16 lg:-mr-56 lg:pl-56">
+                            <div className="[transform:rotateX(20deg);]">
+                                <div className="lg:h-176 relative skew-x-[.36rad]">
+                                    <div
+                                        aria-hidden
+                                        className="bg-linear-to-b from-background to-background z-1 absolute -inset-16 via-transparent sm:-inset-32"
+                                    />
+                                    <div
+                                        aria-hidden
+                                        className="bg-linear-to-r from-background to-background z-1 absolute -inset-16 bg-white/50 via-transparent sm:-inset-32 dark:bg-transparent"
+                                    />
+
+                                    <div
+                                        aria-hidden
+                                        className="absolute -inset-16 bg-[linear-gradient(to_right,var(--color-border)_1px,transparent_1px),linear-gradient(to_bottom,var(--color-border)_1px,transparent_1px)] bg-[size:24px_24px] [--color-border:var(--color-zinc-400)] sm:-inset-32 dark:[--color-border:color-mix(in_oklab,var(--color-white)_20%,transparent)]"
+                                    />
+                                    <div
+                                        aria-hidden
+                                        className="from-background z-11 absolute inset-0 bg-gradient-to-l"
+                                    />
+                                    <div
+                                        aria-hidden
+                                        className="z-2 absolute inset-0 size-full items-center px-5 py-24 [background:radial-gradient(125%_125%_at_50%_10%,transparent_40%,var(--color-background)_100%)]"
+                                    />
+                                    <div
+                                        aria-hidden
+                                        className="z-2 absolute inset-0 size-full items-center px-5 py-24 [background:radial-gradient(125%_125%_at_50%_10%,transparent_40%,var(--color-background)_100%)]"
+                                    />
+
+                                    <Image
+                                        className="rounded-(--radius) z-1 relative border dark:hidden"
+                                        src="https://images.pexels.com/photos/1290141/pexels-photo-1290141.jpeg"
+                                        alt="Tailark hero section"
+                                        width={2880}
+                                        height={2074}
+                                    />
+                                    <Image
+                                        className="rounded-(--radius) z-1 relative hidden border dark:block"
+                                        src="https://images.pexels.com/photos/1290141/pexels-photo-1290141.jpeg"
+                                        alt="Tailark hero section"
+                                        width={2880}
+                                        height={2074}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>

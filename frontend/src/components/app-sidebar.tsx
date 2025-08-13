@@ -41,29 +41,29 @@ const data = {
   },
   navMain: [
     {
-      title: "Dashboard",
-      url: "#",
+      title: "Overview",
+      url: "overview",
       icon: IconDashboard,
     },
     {
-      title: "Lifecycle",
-      url: "#",
+      title: "Manage Users",
+      url: "list",
       icon: IconListDetails,
     },
     {
-      title: "Analytics",
-      url: "#",
+      title: "Manage Faculty",
+      url: "list",
       icon: IconChartBar,
     },
     {
-      title: "Projects",
-      url: "#",
+      title: "Manage Submissions",
+      url: "list",
       icon: IconFolder,
     },
     {
-      title: "Team",
-      url: "#",
-      icon: IconUsers,
+      title: "Model Answer Papers",
+      url: "list",
+      icon: IconDatabase,
     },
   ],
   navClouds: [
@@ -116,7 +116,7 @@ const data = {
   ],
   navSecondary: [
     {
-      title: "Settings",
+      title: "System Settings",
       url: "#",
       icon: IconSettings,
     },
@@ -133,18 +133,13 @@ const data = {
   ],
   documents: [
     {
-      name: "Data Library",
-      url: "#",
-      icon: IconDatabase,
-    },
-    {
-      name: "Reports",
-      url: "#",
+      name: "System Reports",
+      url: "overview",
       icon: IconReport,
     },
     {
-      name: "Word Assistant",
-      url: "#",
+      name: "Financial Reports",
+      url: "overview",
       icon: IconFileWord,
     },
   ],
