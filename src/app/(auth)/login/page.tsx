@@ -22,7 +22,7 @@ export default function LoginPage() {
                     </div>
 
                     <div className="mt-6 grid grid-cols-2 gap-3">
-                        <Link href={"/dashboard"}>
+                        <Link href={"/dashboard/overview"}>
                         <Button
                             type="button"
                             variant="outline">

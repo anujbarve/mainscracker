@@ -125,7 +125,7 @@ export default function FooterSection() {
                             href="/"
                             aria-label="go home"
                             className="block size-fit">
-                            <h1>UPSC WEB APP</h1>
+                            <h1>Mains Cracker</h1>
                         </Link>
                     </div>
 
