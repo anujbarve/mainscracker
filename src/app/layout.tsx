@@ -17,7 +17,7 @@ export default function RootLayout({
     <>
       <html lang="en" suppressHydrationWarning>
         <head>
-          <script defer src="https://umami.mainscracker.com/script.js" data-website-id="ed25dce4-1747-451c-84f9-655f4567ce67"></script>
+          <script defer src="https://analytics.mainscracker.com/script.js" data-website-id="ed25dce4-1747-451c-84f9-655f4567ce67"></script>
         </head>
         <body>
           <ThemeProvider
