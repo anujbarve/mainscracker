@@ -131,7 +131,7 @@ export default function HeroSection() {
                                     <Image
                                         className="rounded-(--radius) z-1 relative border dark:hidden"
                                         src="/hero-bg.jpg"
-                                        alt="Tailark hero section"
+                                        alt="Mains Cracker hero section"
                                         width={2880}
                                         height={2074}
                                     />
