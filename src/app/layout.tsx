@@ -16,7 +16,9 @@ export default function RootLayout({
   return (
     <>
       <html lang="en" suppressHydrationWarning>
-        <head />
+        <head>
+          <script defer src="https://analytics.mainscracker.com/script.js" data-website-id="e41d1225-576a-44d9-b6de-4bf0c967cad4"></script>
+        </head>
         <body>
           <ThemeProvider
             attribute="class"

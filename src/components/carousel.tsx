@@ -4,11 +4,18 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
+type CarouselButton = {
+  label: string
+  type?: "primary" | "secondary" | "outline"
+  link: string
+}
+
 type CarouselItem = {
   id: number
   image: string
   title?: string
   subtitle?: string
+  buttons?: CarouselButton[]
 }
 
 const items: CarouselItem[] = [
@@ -17,18 +24,30 @@ const items: CarouselItem[] = [
     image: 'hero-bg.jpg',
     title: 'Personalized Consulting',
     subtitle: 'Book expert sessions with ease',
+    buttons: [
+      { label: 'Book Now', type: 'primary', link: '/login' },
+      { label: 'Learn More', type: 'outline', link: '#features' },
+    ]
   },
   {
     id: 2,
-    image: 'hero-bg.jpg',
+    image: 'hero-bg2.jpg',
     title: 'Mock Paper Evaluations',
     subtitle: 'Get detailed feedback instantly',
+    buttons: [
+      { label: 'Upload Paper', type: 'secondary', link: '#upload' },
+    ]
   },
   {
     id: 3,
-    image: 'hero-bg.jpg',
+    image: 'hero-bg3.jpg',
     title: 'Credit-Based System',
     subtitle: 'Only pay for what you use',
+    buttons: [
+      { label: 'Get Credits', type: 'primary', link: '/credits' },
+      { label: 'Pricing', type: 'outline', link: '#pricing' },
+      { label: 'Contact Us', type: 'secondary', link: '/contact' },
+    ]
   },
 ]
 
@@ -65,7 +84,27 @@ export function Carousel() {
               <h2 className="text-3xl md:text-5xl font-bold mb-2">{item.title}</h2>
             )}
             {item.subtitle && (
-              <p className="text-lg md:text-xl opacity-90">{item.subtitle}</p>
+              <p className="text-lg md:text-xl opacity-90 mb-6">{item.subtitle}</p>
+            )}
+
+            {/* Buttons as Links */}
+            {item.buttons && (
+              <div className="flex flex-wrap gap-4 justify-center">
+                {item.buttons.map((btn, i) => (
+                  <a
+                    key={i}
+                    href={btn.link}
+                    className={cn(
+                      "px-6 py-3 rounded-full font-semibold transition min-w-[140px] text-center",
+                      btn.type === "primary" && "bg-white text-black hover:bg-gray-200",
+                      btn.type === "secondary" && "bg-gray-700 text-white hover:bg-gray-600",
+                      btn.type === "outline" && "border border-white text-white hover:bg-white hover:text-black"
+                    )}
+                  >
+                    {btn.label}
+                  </a>
+                ))}
+              </div>
             )}
           </div>
         </motion.div>
