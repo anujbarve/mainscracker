@@ -1,0 +1,96 @@
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({ request })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          response = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const pathname = request.nextUrl.pathname
+
+  // ✅ Public routes (accessible without login)
+  const publicRoutes = [
+    '/hero-bg.jpg',
+    '/hero-bg2.jpg',
+    '/hero-bg3.jpg',
+    '/',
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+  ]
+
+  // ✅ Protect everything else
+  if (!user && !publicRoutes.includes(pathname)) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.searchParams.set('redirectedFrom', pathname)
+    return NextResponse.redirect(url)
+  }
+
+  // ✅ Prevent logged-in users from seeing auth pages
+  if (user && ['/login', '/register'].includes(pathname)) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/'
+    return NextResponse.redirect(url)
+  }
+
+  // ✅ Role-based access control
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    const role = profile?.role ?? 'student'
+
+    // Allow only role-specific routes
+    if (role === 'student' && !pathname.startsWith('/student')) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/student'
+      return NextResponse.redirect(url)
+    }
+
+    if (role === 'faculty' && !pathname.startsWith('/faculty')) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/faculty'
+      return NextResponse.redirect(url)
+    }
+
+    if (role === 'admin' && !pathname.startsWith('/admin')) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin'
+      return NextResponse.redirect(url)
+    }
+  }
+
+  return response
+}
+
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+  ],
+}
