@@ -109,10 +109,12 @@ export const useAuthStore = create<AuthState>()(
           const supabase = await createClient();
           set({ loading: true, error: null });
           try {
+            
             const { data, error } = await supabase.auth.signInWithPassword({
               email,
               password,
             });
+
             if (error) {
               toast.error(error.message);
               return;

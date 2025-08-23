@@ -43,8 +43,7 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      await signup(values.email, values.password) // 👈 role passed here
-
+      await signup(values.email, values.password)
     } catch (err) {
       toast.error('Signup failed')
     } finally {
@@ -55,7 +54,7 @@ export default function RegisterPage() {
   return (
     <section className="flex min-h-screen bg-zinc-50 px-4 py-16 md:py-32 dark:bg-transparent">
       <form
-        onSubmit={handleSubmit} // ✅ not `action`
+        onSubmit={handleSubmit} 
         className="bg-card m-auto h-fit w-full max-w-sm rounded-[calc(var(--radius)+.125rem)] border p-0.5 shadow-md"
       >
         <div className="p-8 pb-6">
