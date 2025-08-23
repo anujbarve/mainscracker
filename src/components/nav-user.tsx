@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import {
   IconCreditCard,
@@ -29,6 +29,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import Link from "next/link"
+import { useAuthStore } from "@/stores/auth"
 
 export function NavUser({
   user,
@@ -40,6 +41,7 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const logout = useAuthStore((state) => state.logout) // grab logout from store
 
   return (
     <SidebarMenu>
@@ -99,12 +101,12 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <Link href={"/"}>
-              <DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={"/"} onClick={logout}>
                 <IconLogout />
                 Log out
-              </DropdownMenuItem>
-            </Link>
+              </Link>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
