@@ -7,7 +7,7 @@ import Image from 'next/image'
 export default function HeroSection() {
     return (
         <main className="overflow-hidden">
-            <section className="bg-linear-to-b to-muted from-background">
+            <section className="bg-linear-to-b to-muted from-background h-screen">
                 <div className="relative py-36">
                     <div className="relative z-10 mx-auto w-full max-w-5xl px-6">
                         <div className="md:w-1/2">
@@ -16,67 +16,37 @@ export default function HeroSection() {
                                     Preparing for UPSC Mains?
                                 </h1>
                                 <p className="text-muted-foreground my-8 max-w-2xl text-balance text-xl">
-                                    Submit your answers, get expert evaluation in fixed time, 
-                                    and track progress using our simple credit system. 
+                                    Submit your answers, get expert evaluation in fixed time,
+                                    and track progress using our simple credit system.
                                     Prepare smarter, not harder.
                                 </p>
 
                                 <div className="flex items-center gap-3">
-                                    <Button
-                                        asChild
-                                        size="lg"
-                                        className="pr-4.5">
-                                        <Link href="#get-started">
-                                            <span className="text-nowrap">Submit your answers</span>
-                                            <ChevronRight className="opacity-50" />
-                                        </Link>
-                                    </Button>
-                                    <Button
-                                        key={2}
-                                        asChild
-                                        size="lg"
-                                        variant="outline"
-                                        className="pl-5">
-                                        <Link href="#watch-video">
-                                            <CirclePlay className="fill-primary/25 stroke-primary" />
-                                            <span className="text-nowrap">See How It Works</span>
-                                        </Link>
-                                    </Button>
+                                    <div className="flex items-center gap-3">
+                                        <Button
+                                            asChild
+                                            size="lg"
+                                            className="pr-4.5 bg-primary text-primary-foreground hover:bg-primary/90 dark:bg-primary dark:text-white"
+                                        >
+                                            <Link href="/login">
+                                                <span className="text-nowrap">Submit your answers</span>
+                                                <ChevronRight className="opacity-70" />
+                                            </Link>
+                                        </Button>
+
+                                        <Button
+                                            asChild
+                                            size="lg"
+                                            variant="outline"
+                                            className="pl-5 border-foreground/40 text-foreground hover:bg-foreground/10 dark:border-white/40 dark:text-white dark:hover:bg-white/10"
+                                        >
+                                            <Link href="#watch-video">
+                                                <span className="text-nowrap">See How It Works</span>
+                                            </Link>
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
-
-                            {/* <div className="mt-10">
-                                <p className="text-muted-foreground">Trusted by serious UPSC aspirants across India</p>
-                                <div className="mt-6 grid max-w-sm grid-cols-3 gap-6">
-                                    <div className="flex">
-                                        <img
-                                            className="h-6 w-fit"
-                                            src="/logos/visionias.svg"
-                                            alt="VisionIAS Logo"
-                                            height="24"
-                                            width="auto"
-                                        />
-                                    </div>
-                                    <div className="flex">
-                                        <img
-                                            className="h-6 w-fit"
-                                            src="/logos/insightsias.svg"
-                                            alt="InsightsIAS Logo"
-                                            height="24"
-                                            width="auto"
-                                        />
-                                    </div>
-                                    <div className="flex">
-                                        <img
-                                            className="h-6 w-fit"
-                                            src="/logos/forumias.svg"
-                                            alt="ForumIAS Logo"
-                                            height="24"
-                                            width="auto"
-                                        />
-                                    </div>
-                                </div>
-                            </div> */}
                         </div>
                     </div>
 
