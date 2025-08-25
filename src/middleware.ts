@@ -34,6 +34,7 @@ export async function middleware(request: NextRequest) {
     '/hero-bg.jpg',
     '/hero-bg2.jpg',
     '/hero-bg3.jpg',
+    '/hero.jpg',
     '/',
     '/login',
     '/register',

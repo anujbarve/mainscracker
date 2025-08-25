@@ -8,6 +8,7 @@ import { ModeToggle } from './theme-toggle'
 
 const menuItems = [
   { name: 'Features', href: '#' },
+  { name: 'Notes', href: '#' },
   { name: 'Solution', href: '#' },
   { name: 'Pricing', href: '#' },
   { name: 'About', href: '#' },
