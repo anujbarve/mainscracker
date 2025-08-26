@@ -14,6 +14,7 @@ import {
   IconSearch,
   IconSettings,
   IconUsers,
+  IconCirclePlus
 } from "@tabler/icons-react"
 
 import { NavDocuments } from "@/components/nav-documents"
@@ -90,6 +91,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return {
       navMain: [
         { title: "Dashboard", url: `${basePath}/overview`, icon: IconDashboard },
+        { title: "Submit Answer Sheet", url: `${basePath}/answersheet`, icon: IconCirclePlus },
         { title: "My Courses", url: `${basePath}/list`, icon: IconFileDescription },
         { title: "Assignments", url: `${basePath}/list`, icon: IconFolder },
       ],

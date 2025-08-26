@@ -1,11 +1,10 @@
-import { DataTable } from "@/components/data-table"
+import { AnswerSubmissionsTable } from "@/components/student/answersheet-list"
 
-import data from "../data.json"
 
 export default function Page() {
   return (
     <>
-      <DataTable data={data} />
+      <AnswerSubmissionsTable/>;
     </>
   )
 }
