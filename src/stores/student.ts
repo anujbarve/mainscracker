@@ -47,7 +47,7 @@ export type AnswerStatus =
   | "pending_assignment"
   | "in_evaluation"
   | "completed"
-  | "cancelled"; // Added based on your component's statusConfig
+  | "cancelled"; 
 
 export type AnswerWithDetails = {
   id: string;

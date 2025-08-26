@@ -21,7 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"; // Added DropdownMenuSeparator
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,6 +36,7 @@ import {
   IconSearch,
   IconChevronLeft,
   IconChevronRight,
+  IconEye, // ✅ 1. Import the new icon
 } from "@tabler/icons-react";
 import Link from "next/link";
 
@@ -78,7 +79,6 @@ const StatusBadge = ({ status }: { status: AnswerStatus }) => {
 // --- Column Definitions ---
 const columns: ColumnDef<AnswerWithDetails>[] = [
   {
-    // ✅ FIX: Use id and accessorFn for nested data
     id: "subject",
     accessorFn: (row) => row.subjects?.name,
     header: "Subject",
@@ -111,7 +111,6 @@ const columns: ColumnDef<AnswerWithDetails>[] = [
     cell: ({ row }) => <StatusBadge status={row.original.status} />,
   },
   {
-    // ✅ FIX: Use id and accessorFn for nested data
     id: "evaluator",
     accessorFn: (row) => row.assigned_faculty?.full_name,
     header: "Evaluator",
@@ -135,6 +134,15 @@ const columns: ColumnDef<AnswerWithDetails>[] = [
             <Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Open menu</span><IconDotsVertical className="h-4 w-4" /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            {/* ✅ 2. ADD THIS MENU ITEM FOR THE DETAIL PAGE LINK */}
+            <DropdownMenuItem asChild>
+              <Link href={`/student/answers-list/${row.original.id}`}>
+                <IconEye className="mr-2 h-4 w-4" /> View Details
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {/* END OF ADDED CODE */}
+
             <DropdownMenuItem asChild>
               <Link href={row.original.answer_file_url} target="_blank" rel="noopener noreferrer">
                 <IconFileDownload className="mr-2 h-4 w-4" /> Download Submission
@@ -154,14 +162,13 @@ const columns: ColumnDef<AnswerWithDetails>[] = [
   },
 ];
 
-// --- Main Table Component ---
+// --- Main Table Component (No changes needed below) ---
 export function AnswerSubmissionsTable() {
   const { answers, fetchUserAnswers, loading } = useStudentStore();
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
 
   React.useEffect(() => {
-    // Simplified logic: always fetch on mount
     fetchUserAnswers();
   }, [fetchUserAnswers]);
 
