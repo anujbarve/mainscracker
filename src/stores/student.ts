@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { createClient } from "@/utils/client"; // Your Supabase client
 import { useAuthStore } from "./auth"; // To get the logged-in user's ID
 import {
-  Plan,
   SubscriptionWithPlan,
   OrderWithPlan,
   MentorshipSessionWithMentor,
@@ -28,16 +27,27 @@ type MentorshipRequest = {
 type Subject = {
   id: string;
   name: string;
-  category: 'gs' | 'specialized';
+  category: "gs" | "specialized";
+};
+
+type Plan = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  gs_credits_granted: number;
+  specialized_credits_granted: number;
+  mentorship_credits_granted: number;
 };
 
 // ✅ 1. Define and export the specific AnswerStatus type your component needs.
 // This should match the ENUM in your database.
 export type AnswerStatus =
-  | 'pending_assignment'
-  | 'in_evaluation'
-  | 'completed'
-  | 'cancelled'; // Added based on your component's statusConfig
+  | "pending_assignment"
+  | "in_evaluation"
+  | "completed"
+  | "cancelled"; // Added based on your component's statusConfig
 
 export type AnswerWithDetails = {
   id: string;
@@ -56,7 +66,7 @@ export type AnswerWithDetails = {
   // Joined and aliased data
   subjects: Subject | null;
   assigned_faculty: {
-    full_name: string
+    full_name: string;
   } | null;
 };
 
@@ -71,7 +81,6 @@ type StudentState = {
   loading: boolean;
   error: string | null;
   subjects: Subject[] | null;
-
 
   // Actions
   fetchPlans: () => Promise<void>;
@@ -110,7 +119,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         .order("price", { ascending: true });
 
       if (error) throw error;
-      set({ plans: data });
+      set({ plans: data as Plan[] });
     } catch (err: any) {
       toast.error("Failed to fetch plans.");
       set({ error: err.message });
@@ -164,8 +173,8 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       set({ loading: false });
     }
   },
-  
-   fetchUserAnswers: async () => {
+
+  fetchUserAnswers: async () => {
     const { user } = useAuthStore.getState();
     if (!user) return;
 
@@ -174,20 +183,21 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       const supabase = createClient();
       const { data, error } = await supabase
         .from("answers")
-        .select(`
+        .select(
+          `
           *,
           subjects(*),
           assigned_faculty:assigned_faculty_id(full_name)
-        `)
+        `
+        )
         .eq("student_id", user.id)
         .order("submitted_at", { ascending: false });
 
       console.log(data);
 
       if (error) throw error;
-      
-      set({ answers: data as AnswerWithDetails[] });
 
+      set({ answers: data as AnswerWithDetails[] });
     } catch (err: any) {
       console.error("Error fetching answer sheets:", err);
       toast.error("Failed to fetch your answer sheets.");
@@ -213,10 +223,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       if (error) throw error;
       set({ mentorshipSessions: data as any });
     } catch (err: any) {
-        toast.error("Failed to fetch mentorship sessions.");
-        set({ error: err.message });
+      toast.error("Failed to fetch mentorship sessions.");
+      set({ error: err.message });
     } finally {
-        set({ loading: false });
+      set({ loading: false });
     }
   },
 
@@ -227,7 +237,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       const supabase = await createClient();
       const { data, error } = await supabase
         .from("subjects")
-        .select("id, name, category") 
+        .select("id, name, category")
         .order("name", { ascending: true });
 
       if (error) throw error;
@@ -246,46 +256,53 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     const { user, refreshProfile } = useAuthStore.getState();
     if (!user) return;
 
-    set({ loading: true, error: null });
+    // We don't need to set the global loading state if we handle it per-button,
+    // but we can keep it for a global spinner if desired.
+    // For this example, we'll assume the button will show its own loading state.
+
     try {
       const supabase = await createClient();
-      const { data: planData, error: planError } = await supabase
-        .from("plans")
-        .select("*")
-        .eq("id", planId)
-        .single();
-      
-      if (planError || !planData) throw new Error("Plan not found.");
 
-      const { error: orderError } = await supabase.from("orders").insert({
-        user_id: user.id,
-        plan_id: planId,
-        status: "completed",
-        amount_paid: planData.price,
-        currency: planData.currency,
+      // In a real application, you would get the payment_charge_id from your
+      // payment provider (e.g., Stripe) after the user completes the checkout flow.
+      // For this simplified example, we'll simulate a successful payment.
+      const simulatedPaymentChargeId = `sim_${new Date().getTime()}`;
+
+      // Call the RPC function instead of multiple separate queries
+      const { data: newOrderId, error } = await supabase.rpc("purchase_plan", {
+        plan_id_in: planId,
+        order_status_in: "succeeded", // Simulate a successful payment
+        payment_charge_id_in: simulatedPaymentChargeId,
       });
 
-      if (orderError) throw orderError;
-      
-      toast.success(`Successfully purchased ${planData.name}!`);
-      get().fetchUserOrders();
-      refreshProfile();
+      if (error) {
+        // The error message from `RAISE EXCEPTION` will be in error.message
+        throw error;
+      }
+
+      toast.success("Plan purchased successfully!");
+
+      // Refresh the user's data to reflect the changes made by the function
+      get().fetchUserOrders(); // Refresh the order history
+      refreshProfile(); // Refresh the profile to get the new credit balance
     } catch (err: any) {
-      toast.error(err.message);
-      set({ error: err.message });
-    } finally {
-      set({ loading: false });
+      // Display the specific error message from the database function
+      toast.error(
+        err.message || "An unexpected error occurred during purchase."
+      );
+      // Optionally re-throw or handle the error further
+      throw err; // Re-throwing allows the calling component to handle it
     }
   },
 
   submitAnswerSheet: async (data: AnswerSubmission) => {
     const { refreshProfile } = useAuthStore.getState();
-    
+
     set({ loading: true, error: null });
     try {
       const supabase = await createClient();
 
-      const { error } = await supabase.rpc('submit_answer', {
+      const { error } = await supabase.rpc("submit_answer", {
         subject_id_in: data.subject_id,
         question_text_in: data.question_text,
         answer_file_url_in: data.answer_file_url,
@@ -295,7 +312,6 @@ export const useStudentStore = create<StudentState>((set, get) => ({
 
       toast.success("Answer sheet submitted successfully!");
       await refreshProfile();
-
     } catch (err: any) {
       toast.error(err.message);
       set({ error: err.message });
@@ -303,14 +319,14 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       set({ loading: false });
     }
   },
-  
+
   requestMentorshipSession: async (data: MentorshipRequest) => {
     const { user, profile } = useAuthStore.getState();
     if (!user || !profile) return;
-    
+
     if (profile.mentorship_credit_balance < 1) {
-        toast.error("Insufficient credits to book a session.");
-        return;
+      toast.error("Insufficient credits to book a session.");
+      return;
     }
 
     set({ loading: true, error: null });
@@ -321,7 +337,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         ...data,
       });
       if (error) throw error;
-      
+
       toast.success("Mentorship session requested!");
       get().fetchUserMentorshipSessions();
     } catch (err: any) {
@@ -340,12 +356,12 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         .from("subscriptions")
         .update({ status: "canceled", updated_at: new Date().toISOString() })
         .eq("id", subscriptionId);
-      
+
       if (error) throw error;
 
       toast.success("Subscription has been canceled.");
       get().fetchUserSubscriptions();
-    } catch (err: any)      {
+    } catch (err: any) {
       toast.error("Failed to cancel subscription.");
       set({ error: err.message });
     } finally {

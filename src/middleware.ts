@@ -37,7 +37,13 @@ export async function middleware(request: NextRequest) {
     "/login", 
     "/register", 
     "/forgot-password", 
-    "/reset-password"
+    "/reset-password",
+    "/images/hero.jpg",
+    "/images/features/analytics.png",
+    "/images/features/evaluation.png",
+    "/images/features/faculty.png",
+    "/images/features/student_dashboard.png"
+
   ];
 
   const isPublicRoute =

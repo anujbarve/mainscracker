@@ -192,7 +192,7 @@ export function AnswerSubmissionForm() {
               </CardContent>
               <CardFooter>
                 <Button asChild className="w-full">
-                  <Link href="/pricing">Buy More Credits <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                  <Link href="/student/plans">Buy More Credits <ArrowRight className="ml-2 h-4 w-4" /></Link>
                 </Button>
               </CardFooter>
             </Card>

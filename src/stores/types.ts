@@ -3,7 +3,7 @@
 // Enums from your database schema (assuming these exist)
 export type SubscriptionStatus = "active" | "canceled" | "past_due" | "unpaid";
 export type PlanType = "subscription" | "one_time";
-export type OrderStatus = "completed" | "pending" | "failed";
+export type OrderStatus = "succeeded" | "pending" | "failed";
 export type AnswerStatus = "pending_assignment" | "in_evaluation" | "completed" | "cancelled";
 export type MentorshipStatus = "requested" | "scheduled" | "completed" | "canceled";
 
@@ -42,6 +42,7 @@ export type Order = {
   amount_paid: number;
   currency: string;
   created_at: string;
+  payment_gateway_charge_id: string | null;
 };
 
 export type Answer = {

@@ -90,14 +90,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     // default: student
     return {
       navMain: [
-        { title: "Dashboard", url: `${basePath}/overview`, icon: IconDashboard },
+        { title: "Dashboard", url: `${basePath}/account`, icon: IconDashboard },
         { title: "Submit Answer Sheet", url: `${basePath}/answersheet`, icon: IconCirclePlus },
-        { title: "My Courses", url: `${basePath}/list`, icon: IconFileDescription },
-        { title: "Assignments", url: `${basePath}/list`, icon: IconFolder },
+        { title: "My Submissions", url: `${basePath}/answers-list`, icon: IconFileDescription },
+        { title: "My Orders", url: `${basePath}/orders-list`, icon: IconFolder },
       ],
-      documents: [
-        { name: "Grades Report", url: `${basePath}/overview`, icon: IconReport },
-      ],
+      documents: [],
       navSecondary: [
         { title: "Settings", url: `${basePath}/settings`, icon: IconSettings },
         { title: "Help", url: "#", icon: IconHelp },
@@ -124,7 +122,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
+        {/* <NavDocuments items={data.documents} /> */}
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
