@@ -18,6 +18,8 @@ export type Plan = {
   gs_credits_granted: number;
   specialized_credits_granted: number;
   mentorship_credits_granted: number;
+  interval : string | null;
+  interval_count :  number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

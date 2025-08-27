@@ -14,7 +14,9 @@ import {
   IconSearch,
   IconSettings,
   IconUsers,
-  IconCirclePlus
+  IconCirclePlus,
+  IconPaywall,
+  IconArrowsSort
 } from "@tabler/icons-react"
 
 import { NavDocuments } from "@/components/nav-documents"
@@ -93,7 +95,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         { title: "Dashboard", url: `${basePath}/account`, icon: IconDashboard },
         { title: "Submit Answer Sheet", url: `${basePath}/answersheet`, icon: IconCirclePlus },
         { title: "My Submissions", url: `${basePath}/answers-list`, icon: IconFileDescription },
-        { title: "My Orders", url: `${basePath}/orders-list`, icon: IconFolder },
+        { title: "My Orders", url: `${basePath}/orders-list`, icon: IconArrowsSort },
+        { title: "My Subscriptions", url: `${basePath}/subscriptions`, icon: IconPaywall },
       ],
       documents: [],
       navSecondary: [

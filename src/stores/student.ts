@@ -256,16 +256,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     const { user, refreshProfile } = useAuthStore.getState();
     if (!user) return;
 
-    // We don't need to set the global loading state if we handle it per-button,
-    // but we can keep it for a global spinner if desired.
-    // For this example, we'll assume the button will show its own loading state.
 
     try {
       const supabase = await createClient();
 
-      // In a real application, you would get the payment_charge_id from your
-      // payment provider (e.g., Stripe) after the user completes the checkout flow.
-      // For this simplified example, we'll simulate a successful payment.
       const simulatedPaymentChargeId = `sim_${new Date().getTime()}`;
 
       // Call the RPC function instead of multiple separate queries
