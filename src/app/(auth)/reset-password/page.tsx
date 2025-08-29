@@ -20,12 +20,12 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const token_hash = params.get("token_hash")
+    const code = params.get("code")
     const type = params.get("type")
 
-    if (token_hash && type === "recovery") {
+    if (code && type === "recovery") {
       const supabase = createClient()
-      supabase.auth.exchangeCodeForSession(token_hash).then(async ({ error }) => {
+      supabase.auth.exchangeCodeForSession(code).then(async ({ error }) => {
         if (error) {
           setMessage("Invalid or expired recovery link.")
         } else {
@@ -34,6 +34,7 @@ export default function ResetPasswordPage() {
       })
     }
   }, [fetchUser])
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
