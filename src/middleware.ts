@@ -33,10 +33,10 @@ export async function middleware(request: NextRequest) {
 
   // ✅ Define public routes
   const publicRoutes = [
-    "/", 
-    "/login", 
-    "/register", 
-    "/forgot-password", 
+    "/",
+    "/login",
+    "/register",
+    "/forgot-password",
     "/reset-password",
     "/images/hero.jpg",
     "/images/features/analytics.png",
@@ -44,7 +44,7 @@ export async function middleware(request: NextRequest) {
     "/images/features/faculty.png",
     "/images/features/student_dashboard.png",
     "/email/invite.html",
-    "/email/password-reset.html"
+    "/email/password-reset.html",
   ];
 
   const isPublicRoute =
@@ -57,6 +57,15 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirectedFrom", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  if (
+    pathname === "/login" &&
+    request.nextUrl.searchParams.get("type") === "recovery"
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/reset-password";
     return NextResponse.redirect(url);
   }
 
@@ -105,4 +114,3 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|images/).*)"],
 };
-
