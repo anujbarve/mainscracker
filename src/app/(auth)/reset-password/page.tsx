@@ -1,18 +1,42 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LogoIcon } from '@/components/logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth'
+import { createClient } from '@/utils/client'
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const { resetPassword, loading, error, user } = useAuthStore()
+  const { resetPassword, loading, error, user, fetchUser } = useAuthStore()
   const [message, setMessage] = useState("")
+
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  // Step 1: Exchange token for a session when page loads
+  useEffect(() => {
+    const exchangeSession = async () => {
+      const token_hash = searchParams.get("token_hash")
+      const type = searchParams.get("type")
+
+      if (token_hash && type === "recovery") {
+        const supabase = createClient()
+        const { error } = await supabase.auth.exchangeCodeForSession(token_hash)
+        if (error) {
+          setMessage("Invalid or expired recovery link.")
+        } else {
+          await fetchUser()
+        }
+      }
+    }
+    exchangeSession()
+  }, [searchParams, fetchUser])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,7 +52,8 @@ export default function ResetPasswordPage() {
     if (error) {
       setMessage(error)
     } else if (user) {
-      setMessage("Password updated successfully! You can now log in.")
+      setMessage("Password updated successfully! Redirecting to login...")
+      setTimeout(() => router.push("/login"), 2000)
     } else {
       setMessage("Something went wrong. Please try again.")
     }
