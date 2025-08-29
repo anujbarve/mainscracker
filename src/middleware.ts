@@ -42,8 +42,9 @@ export async function middleware(request: NextRequest) {
     "/images/features/analytics.png",
     "/images/features/evaluation.png",
     "/images/features/faculty.png",
-    "/images/features/student_dashboard.png"
-
+    "/images/features/student_dashboard.png",
+    "/email/invite.html",
+    "/email/password-reset.html"
   ];
 
   const isPublicRoute =
