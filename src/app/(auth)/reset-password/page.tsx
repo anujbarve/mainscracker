@@ -19,21 +19,28 @@ export default function ResetPasswordPage() {
   const router = useRouter()
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const code = params.get("code")
-    const type = params.get("type")
+    const exchangeSession = async () => {
+      const params = new URLSearchParams(window.location.search)
+      const code = params.get("code")
+      const type = params.get("type")
 
-    if (code && type === "recovery") {
-      const supabase = createClient()
-      supabase.auth.exchangeCodeForSession(code).then(async ({ error }) => {
+      if (code && type === "recovery") {
+        const supabase = createClient()
+
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+
         if (error) {
           setMessage("Invalid or expired recovery link.")
         } else {
+          // ✅ Session is now set in localStorage
           await fetchUser()
         }
-      })
+      }
     }
+
+    exchangeSession()
   }, [fetchUser])
+
 
 
   const handleSubmit = async (e: React.FormEvent) => {
