@@ -116,8 +116,8 @@ const PlanCard = ({
   // Assuming price is in cents, format it to a currency string
   const formattedPrice = new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: plan.currency || "USD",
-  }).format(plan.price / 100);
+    currency: plan.currency || "INR",
+  }).format(plan.price);
 
   return (
     <Card className="flex flex-col shadow-md hover:shadow-xl transition-shadow">
