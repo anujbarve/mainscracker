@@ -149,7 +149,9 @@ export const useAuthStore = create<AuthState>()(
           });
           if (error) throw error;
 
-          toast.success("Signup successful! Please check your email to verify and then log in.");
+          toast.success(
+            "Signup successful! Please check your email to verify and then log in."
+          );
           window.location.href = "/login";
         } catch (err: any) {
           set({ error: err.message });
@@ -173,7 +175,7 @@ export const useAuthStore = create<AuthState>()(
         const supabase = await createClient();
         const { user } = get();
         if (!user) return;
-        
+
         try {
           const { data: profile, error } = await supabase
             .from("profiles")
@@ -207,24 +209,45 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // ✅ Reset user's password
-      resetPassword: async (newPassword) => {
+      // in useAuthStore
+      resetPassword: async (password: string) => {
         const supabase = await createClient();
         set({ loading: true, error: null });
+
         try {
-          const { data, error } = await supabase.auth.updateUser({
-            password: newPassword,
-          });
+          // 🔑 ensure session from token_hash if missing
+          let {
+            data: { session },
+          } = await supabase.auth.getSession();
+
+          if (!session) {
+            const params = new URLSearchParams(window.location.search);
+            const token_hash = params.get("token_hash");
+            const type = params.get("type");
+
+            if (type === "recovery" && token_hash) {
+              const { error } = await supabase.auth.exchangeCodeForSession(
+                token_hash
+              );
+              if (error) throw error;
+
+              // refresh session after exchange
+              const res = await supabase.auth.getSession();
+              session = res.data.session;
+            }
+          }
+
+          if (!session) {
+            throw new Error("No valid session. Reset link may be expired.");
+          }
+
+          // ✅ now update the password
+          const { data, error } = await supabase.auth.updateUser({ password });
           if (error) throw error;
 
-          set({ user: data.user });
-          toast.success("Password updated successfully! You can now log in.");
-          window.location.href = "/login";
+          set({ user: data.user, loading: false });
         } catch (err: any) {
-          set({ error: err.message });
-          toast.error(err.message);
-        } finally {
-          set({ loading: false });
+          set({ error: err.message, loading: false });
         }
       },
     }),
