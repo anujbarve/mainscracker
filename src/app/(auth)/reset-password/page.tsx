@@ -16,27 +16,24 @@ export default function ResetPasswordPage() {
   const { resetPassword, loading, error, user, fetchUser } = useAuthStore()
   const [message, setMessage] = useState("")
 
-  const searchParams = useSearchParams()
   const router = useRouter()
 
-  // Step 1: Exchange token for a session when page loads
   useEffect(() => {
-    const exchangeSession = async () => {
-      const token_hash = searchParams.get("token_hash")
-      const type = searchParams.get("type")
+    const params = new URLSearchParams(window.location.search)
+    const token_hash = params.get("token_hash")
+    const type = params.get("type")
 
-      if (token_hash && type === "recovery") {
-        const supabase = createClient()
-        const { error } = await supabase.auth.exchangeCodeForSession(token_hash)
+    if (token_hash && type === "recovery") {
+      const supabase = createClient()
+      supabase.auth.exchangeCodeForSession(token_hash).then(async ({ error }) => {
         if (error) {
           setMessage("Invalid or expired recovery link.")
         } else {
           await fetchUser()
         }
-      }
+      })
     }
-    exchangeSession()
-  }, [searchParams, fetchUser])
+  }, [fetchUser])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
