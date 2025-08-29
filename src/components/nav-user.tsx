@@ -1,13 +1,23 @@
 'use client'
 
+import Link from "next/link"
+import { useTheme } from "next-themes"
+import { useAuthStore } from "@/stores/auth"
+
+// Icons
 import {
   IconCreditCard,
   IconDotsVertical,
   IconLogout,
   IconNotification,
   IconUserCircle,
+  IconSun,
+  IconMoon,
+  IconDeviceDesktop,
+  IconCheck,
 } from "@tabler/icons-react"
 
+// Shadcn UI Components
 import {
   Avatar,
   AvatarFallback,
@@ -21,6 +31,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu"
 import {
   SidebarMenu,
@@ -28,20 +42,35 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import Link from "next/link"
-import { useAuthStore } from "@/stores/auth"
+import { usePathname } from "next/navigation"
 
-export function NavUser({
-  user,
-}: {
-  user: {
-    name: string
-    email: string
-    avatar: string
-  }
-}) {
+export function useBasePath() {
+  const pathname = usePathname()
+  if (pathname.startsWith("/student")) return "/student"
+  if (pathname.startsWith("/faculty")) return "/faculty"
+  if (pathname.startsWith("/admin")) return "/admin"
+  return "" // default
+}
+
+
+export function NavUser() {
   const { isMobile } = useSidebar()
-  const logout = useAuthStore((state) => state.logout) // grab logout from store
+  let basePath = useBasePath()
+
+  // Select each piece of state individually to prevent infinite re-renders
+  const user = useAuthStore((state) => state.user)
+  const profile = useAuthStore((state) => state.profile)
+  const logout = useAuthStore((state) => state.logout)
+  const { theme, setTheme } = useTheme()
+
+  // Use profile full_name, with fallback to email for display
+  const displayName = profile?.full_name || user?.email || "User"
+  const displayEmail = user?.email || "No email"
+
+  // ✅ FIX 2: Determine the correct icon based on the current theme for consistency
+  const ThemeIcon = theme === 'dark' ? IconMoon : theme === 'system' ? IconDeviceDesktop : IconSun;
+
+  if (!user) return null
 
   return (
     <SidebarMenu>
@@ -52,19 +81,22 @@ export function NavUser({
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="h-8 w-8 rounded-lg grayscale">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+              <Avatar className="h-8 w-8 rounded-lg">
+                <AvatarImage src={""} alt={displayName} />
+                <AvatarFallback className="rounded-lg">
+                  {displayName?.[0].toUpperCase()}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
+                <span className="truncate font-medium">{displayName}</span>
                 <span className="text-muted-foreground truncate text-xs">
-                  {user.email}
+                  {displayEmail}
                 </span>
               </div>
               <IconDotsVertical className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
+
           <DropdownMenuContent
             className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
             side={isMobile ? "bottom" : "right"}
@@ -74,42 +106,78 @@ export function NavUser({
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                  <AvatarImage src={""} alt={displayName} />
+                  <AvatarFallback className="rounded-lg">
+                    {displayName?.[0].toUpperCase()}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{user.name}</span>
+                  <span className="truncate font-medium">{displayName}</span>
                   <span className="text-muted-foreground truncate text-xs">
-                    {user.email}
+                    {displayEmail}
                   </span>
                 </div>
               </div>
             </DropdownMenuLabel>
+
             <DropdownMenuSeparator />
+
             <DropdownMenuGroup>
+
+              <Link href={`${basePath}/account`}>
+                <DropdownMenuItem>
+                  <IconUserCircle className="mr-2 size-4" />
+                  <span>Account</span>
+
+                </DropdownMenuItem>
+              </Link>
               <DropdownMenuItem>
-                <IconUserCircle />
-                Account
+                <IconCreditCard className="mr-2 size-4" />
+                <span>Billing</span>
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <IconCreditCard />
-                Billing
+                <IconNotification className="mr-2 size-4" />
+                <span>Notifications</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconNotification />
-                Notifications
-              </DropdownMenuItem>
+
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <ThemeIcon className="mr-2 size-4" />
+                  <span>Theme</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem onClick={() => setTheme("light")}>
+                      <IconSun className="mr-2 size-4" />
+                      <span>Light</span>
+                      {theme === 'light' && <IconCheck className="ml-auto size-4" />}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setTheme("dark")}>
+                      <IconMoon className="mr-2 size-4" />
+                      <span>Dark</span>
+                      {theme === 'dark' && <IconCheck className="ml-auto size-4" />}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setTheme("system")}>
+                      <IconDeviceDesktop className="mr-2 size-4" />
+                      <span>System</span>
+                      {theme === 'system' && <IconCheck className="ml-auto size-4" />}
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
             </DropdownMenuGroup>
+
             <DropdownMenuSeparator />
+
             <DropdownMenuItem asChild>
-              <Link href={"/"} onClick={logout}>
-                <IconLogout />
-                Log out
+              <Link href="/" onClick={() => logout()}>
+                <IconLogout className="mr-2 size-4" />
+                <span>Log out</span>
               </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  )
+  );
 }

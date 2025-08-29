@@ -2,21 +2,21 @@
 
 import * as React from "react"
 import {
-  IconCamera,
   IconChartBar,
   IconDashboard,
   IconDatabase,
-  IconFileAi,
   IconFileDescription,
   IconFileWord,
   IconFolder,
   IconHelp,
   IconInnerShadowTop,
-  IconListDetails,
   IconReport,
   IconSearch,
   IconSettings,
   IconUsers,
+  IconCirclePlus,
+  IconPaywall,
+  IconArrowsSort
 } from "@tabler/icons-react"
 
 import { NavDocuments } from "@/components/nav-documents"
@@ -32,120 +32,80 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { usePathname } from "next/navigation"
+import { useAuthStore } from "@/stores/auth"
 
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
-    {
-      title: "Overview",
-      url: "/overview",
-      icon: IconDashboard,
-    },
-    {
-      title: "Manage Users",
-      url: "list",
-      icon: IconListDetails,
-    },
-    {
-      title: "Manage Faculty",
-      url: "list",
-      icon: IconChartBar,
-    },
-    {
-      title: "Manage Submissions",
-      url: "list",
-      icon: IconFolder,
-    },
-    {
-      title: "Model Answer Papers",
-      url: "list",
-      icon: IconDatabase,
-    },
-  ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: IconCamera,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: IconFileDescription,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: IconFileAi,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  navSecondary: [
-    {
-      title: "System Settings",
-      url: "#",
-      icon: IconSettings,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: IconHelp,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: IconSearch,
-    },
-  ],
-  documents: [
-    {
-      name: "System Reports",
-      url: "overview",
-      icon: IconReport,
-    },
-    {
-      name: "Financial Reports",
-      url: "overview",
-      icon: IconFileWord,
-    },
-  ],
+export function useBasePath() {
+  const pathname = usePathname()
+  if (pathname.startsWith("/student")) return "/student"
+  if (pathname.startsWith("/faculty")) return "/faculty"
+  if (pathname.startsWith("/admin")) return "/admin"
+  return "" // default
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { profile } = useAuthStore()
+
+  // detect base path dynamically
+  let basePath = useBasePath()
+
+  // role-based navigation
+  const data = React.useMemo(() => {
+    if (profile?.role === "admin") {
+      return {
+        navMain: [
+          { title: "Overview", url: `${basePath}/overview`, icon: IconDashboard },
+          { title: "Manage Users", url: `${basePath}/users`, icon: IconUsers },
+          { title: "Manage Faculty", url: `${basePath}/faculty`, icon: IconChartBar },
+          { title: "Manage Submissions", url: `${basePath}/submissions`, icon: IconFolder },
+          { title: "Model Answer Papers", url: `${basePath}/papers`, icon: IconDatabase },
+        ],
+        documents: [
+          { name: "System Reports", url: `${basePath}/reports/system`, icon: IconReport },
+          { name: "Financial Reports", url: `${basePath}/reports/finance`, icon: IconFileWord },
+        ],
+        navSecondary: [
+          { title: "System Settings", url: `${basePath}/settings`, icon: IconSettings },
+          { title: "Get Help", url: "#", icon: IconHelp },
+          { title: "Search", url: "#", icon: IconSearch },
+        ],
+      }
+    }
+
+    if (profile?.role === "faculty") {
+      return {
+        navMain: [
+          { title: "Dashboard", url: `${basePath}/overview`, icon: IconDashboard },
+          { title: "My Courses", url: `${basePath}/courses`, icon: IconFileDescription },
+          { title: "Submissions", url: `${basePath}/submissions`, icon: IconFolder },
+        ],
+        documents: [
+          { name: "Course Reports", url: `${basePath}/reports/courses`, icon: IconReport },
+        ],
+        navSecondary: [
+          { title: "Settings", url: `${basePath}/settings`, icon: IconSettings },
+          { title: "Help", url: "#", icon: IconHelp },
+        ],
+      }
+    }
+
+    // default: student
+    return {
+      navMain: [
+        { title: "Dashboard", url: `${basePath}/account`, icon: IconDashboard },
+        { title: "Submit Answer Sheet", url: `${basePath}/answersheet`, icon: IconCirclePlus },
+        { title: "My Submissions", url: `${basePath}/answers-list`, icon: IconFileDescription },
+        { title: "My Orders", url: `${basePath}/orders-list`, icon: IconArrowsSort },
+        { title: "My Subscriptions", url: `${basePath}/subscriptions`, icon: IconPaywall },
+      ],
+      documents: [],
+      navSecondary: [
+        { title: "Settings", url: `${basePath}/settings`, icon: IconSettings },
+        { title: "Help", url: "#", icon: IconHelp },
+      ],
+    }
+  }, [profile?.role, basePath])
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -155,7 +115,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="#">
+              <a href={basePath || "/"}>
                 <IconInnerShadowTop className="!size-5" />
                 <span className="text-base font-semibold">UPSC Inc.</span>
               </a>
@@ -165,11 +125,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
+        {/* <NavDocuments items={data.documents} /> */}
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   )

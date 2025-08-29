@@ -13,19 +13,19 @@ export default function Features() {
 
     const images = {
         'item-1': {
-            image: '/features/evaluation.png',
+            image: '/images/features/evaluation.png',
             alt: 'Fast answer sheet evaluation',
         },
         'item-2': {
-            image: '/features/student_dashboard.png',
+            image: '/images/features/student_dashboard.png',
             alt: 'Easy test submission dashboard',
         },
         'item-3': {
-            image: '/features/faculty.png',
+            image: '/images/features/faculty.png',
             alt: 'Faculty evaluation tools',
         },
         'item-4': {
-            image: '/features/analytics.png',
+            image: '/images/features/analytics.png',
             alt: 'Student feedback and progress analytics',
         },
     }
