@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import { LogoIcon } from '@/components/logo'
+import { GoogleIcon } from '@/components/ui/google-icon'
 import { useAuthStore } from '@/stores/auth'
 
 const schema = z.object({
@@ -21,7 +22,7 @@ const schema = z.object({
 
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
-  const signup = useAuthStore((state) => state.signup)
+  const { signup, signInWithGoogle } = useAuthStore()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -63,6 +64,20 @@ export default function RegisterPage() {
           </Link>
           <h1 className="text-xl font-semibold mt-4 mb-1">Create an Account</h1>
           <p className="text-sm">Welcome! Sign up to get started.</p>
+
+          {/* Social signups */}
+          <div className="mt-6 grid grid-cols-1 gap-3">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={signInWithGoogle}
+              disabled={loading}
+              className="flex items-center justify-center gap-2"
+            >
+              <GoogleIcon />
+              <span>{loading ? "Signing up..." : "Continue with Google"}</span>
+            </Button>
+          </div>
 
           <hr className="my-4 border-dashed" />
 

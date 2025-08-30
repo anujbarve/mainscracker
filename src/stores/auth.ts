@@ -28,6 +28,7 @@ type AuthState = {
   // Actions
   fetchUser: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
@@ -130,6 +131,27 @@ export const useAuthStore = create<AuthState>()(
           else window.location.href = "/student";
 
           toast.success("Login successful!");
+        } catch (err: any) {
+          set({ error: err.message });
+          toast.error(err.message);
+        } finally {
+          set({ loading: false });
+        }
+      },
+
+      // ✅ Google Sign In
+      signInWithGoogle: async () => {
+        const supabase = await createClient();
+        set({ loading: true, error: null });
+        try {
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: `${window.location.origin}/auth/callback`,
+            },
+          });
+
+          if (error) throw error;
         } catch (err: any) {
           set({ error: err.message });
           toast.error(err.message);
