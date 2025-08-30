@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/utils/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/stores/auth'
 
 export default function AuthCallback() {
   const [status, setStatus] = useState('Processing authentication...')
   const router = useRouter()
+  const { fetchUser } = useAuthStore()
 
   useEffect(() => {
     async function handleAuthCallback() {
@@ -35,7 +37,7 @@ export default function AuthCallback() {
         // Check if profile exists
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('role')
+          .select('*')
           .eq('id', session.user.id)
           .single()
 
@@ -43,7 +45,7 @@ export default function AuthCallback() {
           // Profile doesn't exist, create one
           setStatus('Creating user profile...')
           
-          const { error: insertError } = await supabase
+          const { data: newProfile, error: insertError } = await supabase
             .from('profiles')
             .insert({
               id: session.user.id,
@@ -55,6 +57,8 @@ export default function AuthCallback() {
               specialized_credit_balance: 0,
               mentorship_credit_balance: 0,
             })
+            .select()
+            .single()
 
           if (insertError) {
             console.error('Error creating profile:', insertError)
@@ -63,8 +67,14 @@ export default function AuthCallback() {
             return
           }
 
+          // Manually update auth store
+          useAuthStore.setState({ user: session.user, profile: newProfile, loading: false, error: null })
+          
           toast.success('Profile created successfully!')
-          router.push('/student')
+          // Small delay to ensure auth store is updated
+          setTimeout(() => {
+            router.push('/student')
+          }, 100)
           return
         }
 
@@ -81,8 +91,14 @@ export default function AuthCallback() {
         if (role === 'admin') redirectUrl = '/admin'
         else if (role === 'faculty') redirectUrl = '/faculty'
 
+        // Manually update auth store
+        useAuthStore.setState({ user: session.user, profile, loading: false, error: null })
+        
         toast.success('Login successful!')
-        router.push(redirectUrl)
+        // Small delay to ensure auth store is updated
+        setTimeout(() => {
+          router.push(redirectUrl)
+        }, 100)
 
       } catch (error) {
         console.error('Auth callback error:', error)
