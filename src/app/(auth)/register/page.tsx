@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { LogoIcon } from '@/components/logo'
 import { GoogleIcon } from '@/components/ui/google-icon'
 import { useAuthStore } from '@/stores/auth'
+import { GoogleIcon } from '@/components/ui/google-icon'
 
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -65,7 +66,7 @@ export default function RegisterPage() {
           <h1 className="text-xl font-semibold mt-4 mb-1">Create an Account</h1>
           <p className="text-sm">Welcome! Sign up to get started.</p>
 
-          {/* Social signups */}
+           {/* Social signups */}
           <div className="mt-6 grid grid-cols-1 gap-3">
             <Button 
               type="button" 

@@ -38,7 +38,6 @@ export async function middleware(request: NextRequest) {
     "/register",
     "/forgot-password",
     "/reset-password",
-    "/auth/callback", // Allow auth callback to process
     "/images/hero.jpg",
     "/images/features/analytics.png",
     "/images/features/evaluation.png",
