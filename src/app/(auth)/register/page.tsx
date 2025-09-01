@@ -10,7 +10,6 @@ import Link from 'next/link'
 import { LogoIcon } from '@/components/logo'
 import { GoogleIcon } from '@/components/ui/google-icon'
 import { useAuthStore } from '@/stores/auth'
-import { GoogleIcon } from '@/components/ui/google-icon'
 
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
