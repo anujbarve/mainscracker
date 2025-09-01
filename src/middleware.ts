@@ -38,6 +38,7 @@ export async function middleware(request: NextRequest) {
     "/register",
     "/forgot-password",
     "/reset-password",
+    "/auth/callback",
     "/images/hero.jpg",
     "/images/features/analytics.png",
     "/images/features/evaluation.png",

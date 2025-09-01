@@ -10,6 +10,7 @@ import { LogoIcon } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { GoogleIcon } from "@/components/ui/google-icon"
 
 import { useAuthStore } from "@/stores/auth" // ✅ import Zustand store
 
@@ -31,7 +32,7 @@ export default function LoginPage() {
   })
 
   // ✅ Zustand actions
-  const { login } = useAuthStore()
+  const { login, signInWithGoogle, loading } = useAuthStore()
 
   const onSubmit = async (data: LoginForm) => {
     try {
@@ -64,8 +65,15 @@ export default function LoginPage() {
 
           {/* Social logins */}
           <div className="mt-6 grid grid-cols-1 gap-3">
-            <Button type="button" variant="outline">
-              <span>Google</span>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={signInWithGoogle}
+              disabled={isSubmitting || loading}
+              className="flex items-center justify-center gap-2"
+            >
+              <GoogleIcon />
+              <span>{loading ? "Signing in..." : "Continue with Google"}</span>
             </Button>
           </div>
 
@@ -109,8 +117,8 @@ export default function LoginPage() {
               )}
             </div>
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Signing in..." : "Sign In"}
+            <Button type="submit" className="w-full" disabled={isSubmitting || loading}>
+              {isSubmitting || loading ? "Signing in..." : "Sign In"}
             </Button>
           </div>
         </div>
