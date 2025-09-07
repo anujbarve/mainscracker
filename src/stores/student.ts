@@ -14,9 +14,11 @@ import {
 
 // Define the shape of data for creating new records
 type AnswerSubmission = {
-  subject_id: string;
-  question_text: string;
-  answer_file_url: string;
+  subject_id_in: string;
+  question_text_in: string;
+  answer_file_url_in: string;
+  answer_file_size_in: number; // must be passed
+  word_count_in: number; // must be passed
 };
 
 type MentorshipRequest = {
@@ -47,7 +49,7 @@ export type AnswerStatus =
   | "pending_assignment"
   | "in_evaluation"
   | "completed"
-  | "cancelled"; 
+  | "cancelled";
 
 export type AnswerWithDetails = {
   id: string;
@@ -90,7 +92,7 @@ type StudentState = {
   fetchUserMentorshipSessions: () => Promise<void>;
   fetchSubjects: () => Promise<void>;
   purchasePlan: (planId: string) => Promise<void>;
-  submitAnswerSheet: (data: AnswerSubmission) => Promise<void>;
+  submitAnswerSheet: (data: AnswerSubmission) => Promise<string | void>;
   requestMentorshipSession: (data: MentorshipRequest) => Promise<void>;
   cancelSubscription: (subscriptionId: string) => Promise<void>;
 };
@@ -256,7 +258,6 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     const { user, refreshProfile } = useAuthStore.getState();
     if (!user) return;
 
-
     try {
       const supabase = await createClient();
 
@@ -296,19 +297,25 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     try {
       const supabase = await createClient();
 
-      const { error } = await supabase.rpc("submit_answer", {
-        subject_id_in: data.subject_id,
-        question_text_in: data.question_text,
-        answer_file_url_in: data.answer_file_url,
+      // Call the Postgres function via RPC
+      const { data: newAnswerId, error } = await supabase.rpc("submit_answer", {
+        subject_id_in: data.subject_id_in,
+        question_text_in: data.question_text_in,
+        answer_file_url_in: data.answer_file_url_in,
+        answer_file_size_in: Number(data.answer_file_size_in), // must be passed
+        word_count_in: Number(data.word_count_in), // must be passed
       });
 
       if (error) throw error;
 
-      toast.success("Answer sheet submitted successfully!");
+      // refresh profile to update balances, credits, etc.
       await refreshProfile();
+
+      return newAnswerId;
     } catch (err: any) {
       toast.error(err.message);
       set({ error: err.message });
+      return null;
     } finally {
       set({ loading: false });
     }

@@ -87,8 +87,8 @@ const columns: ColumnDef<OrderWithPlan>[] = [
   },
   {
     accessorKey: "created_at",
-    header: "Order Date",
-    cell: ({ row }) => new Date(row.original.created_at).toLocaleDateString(),
+    header: "Order Date And Time",
+    cell: ({ row }) => new Date(row.original.created_at).toLocaleDateString() + " " + new Date(row.original.created_at).toLocaleTimeString(),
   },
   {
     accessorKey: "amount_paid",
@@ -97,7 +97,7 @@ const columns: ColumnDef<OrderWithPlan>[] = [
       const formattedAmount = new Intl.NumberFormat("en-US", {
         style: "currency",
         currency: row.original.currency || "USD",
-      }).format(row.original.amount_paid / 100);
+      }).format(row.original.amount_paid);
       return <div className="font-mono">{formattedAmount}</div>;
     },
   },

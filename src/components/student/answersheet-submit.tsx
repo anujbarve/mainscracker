@@ -66,7 +66,6 @@ export function AnswerSubmissionForm() {
   };
 
   const onSubmit: SubmitHandler<AnswerFormValues> = async (data) => {
-    // These client-side checks are still valuable for a good user experience
     if (!user || !selectedSubject) {
       toast.error("Please ensure you are logged in and have selected a subject.");
       return;
@@ -75,44 +74,50 @@ export function AnswerSubmissionForm() {
       toast.error("You don't have enough credits for this submission.");
       return;
     }
-    
+
     setIsUploading(true);
     try {
       const supabase = await createClient();
-      const file = data.answer_file;
+      const file = data.answer_file!;
       const uniqueFileName = `${uuidv4()}-${file.name}`;
-      
+
       // Ensure the path and bucket name are correct
       const filePath = `${user.id}/${uniqueFileName}`;
       const bucketName = "answers"; // Use your actual bucket name
 
-      // 1. Upload the file to storage (this remains the same)
+      // 1. Upload file
       const { error: uploadError } = await supabase.storage
         .from(bucketName)
         .upload(filePath, file);
       if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
 
-      // 2. Get the public URL
+      // 2. Get public URL
       const { data: urlData } = supabase.storage
         .from(bucketName)
         .getPublicUrl(filePath);
       if (!urlData?.publicUrl) throw new Error("Could not get file URL.");
 
-      // 3. ✅ Call the simplified store action.
-      // The store now handles the RPC call to your function.
-      await submitAnswerSheet({
-        subject_id: data.subject_id,
-        question_text: data.question_text,
-        answer_file_url: urlData.publicUrl,
+      // 3. Collect extra metadata
+      const answer_file_size = file.size; // in bytes
+      const word_count = data.question_text.trim().split(/\s+/).length;
+
+      // 4. Call the updated store action
+      const newAnswerId = await submitAnswerSheet({
+        subject_id_in: data.subject_id,
+        question_text_in: data.question_text,
+        answer_file_url_in: urlData.publicUrl,
+        answer_file_size_in : answer_file_size,
+        word_count_in : word_count,
       });
 
-      // 4. Reset the form on success
-      form.reset();
-      setFileName(null);
-      setSelectedSubject(null);
-      
+      // 5. Reset form on success
+      if (newAnswerId) {
+        toast.success("Answer submitted successfully!");
+        form.reset();
+        setFileName(null);
+        setSelectedSubject(null);
+      }
     } catch (error: any) {
-      // This will now also catch errors from the RPC function, like "Insufficient credits"
       toast.error(error.message || "An unexpected error occurred.");
     } finally {
       setIsUploading(false);
@@ -132,7 +137,7 @@ export function AnswerSubmissionForm() {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 xl:gap-12 items-start">
-          
+
           {/* Main Form Panel */}
           <div className="lg:col-span-3">
             <Card className="shadow-sm">
@@ -147,7 +152,7 @@ export function AnswerSubmissionForm() {
                           <FormItem><Select onValueChange={handleSubjectChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a subject..." /></SelectTrigger></FormControl><SelectContent>{subjects.map((s) => (<SelectItem key={s.id} value={s.id}><div className="flex w-full items-center justify-between"><span>{s.name}</span><Badge variant="outline" className="capitalize">{s.category === 'gs' ? 'General' : 'Specialized'} - 1 Credit</Badge></div></SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>
                         )} />
                       </div>
-                      
+
                       <Separator />
 
                       {/* Step 2 */}
@@ -196,7 +201,7 @@ export function AnswerSubmissionForm() {
                 </Button>
               </CardFooter>
             </Card>
-            
+
             {selectedSubject && (
               <Alert variant={hasEnoughCredits ? "default" : "destructive"}>
                 {hasEnoughCredits ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
@@ -208,8 +213,8 @@ export function AnswerSubmissionForm() {
                 </AlertDescription>
               </Alert>
             )}
-             <Alert>
-                <Info className="h-4 w-4" /><AlertTitle>Submission Guide</AlertTitle><AlertDescription>Please ensure your PDF is legible and under 5MB. Submissions are final, and credits will be deducted immediately.</AlertDescription>
+            <Alert>
+              <Info className="h-4 w-4" /><AlertTitle>Submission Guide</AlertTitle><AlertDescription>Please ensure your PDF is legible and under 5MB. Submissions are final, and credits will be deducted immediately.</AlertDescription>
             </Alert>
           </div>
         </div>

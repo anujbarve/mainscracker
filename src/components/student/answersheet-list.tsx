@@ -103,7 +103,7 @@ const columns: ColumnDef<AnswerWithDetails>[] = [
   {
     accessorKey: "submitted_at",
     header: "Submitted On",
-    cell: ({ row }) => new Date(row.original.submitted_at).toLocaleDateString(),
+    cell: ({ row }) => new Date(row.original.submitted_at).toLocaleDateString() + " " + new Date(row.original.submitted_at).toLocaleTimeString(),
   },
   {
     accessorKey: "status",
