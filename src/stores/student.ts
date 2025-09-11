@@ -72,6 +72,10 @@ export type AnswerWithDetails = {
   } | null;
 };
 
+type FetchOptions = {
+  force?: boolean; // Set to true to bypass the cache
+};
+
 // Define the state and actions for the store
 type StudentState = {
   // State
@@ -84,18 +88,30 @@ type StudentState = {
   error: string | null;
   subjects: Subject[] | null;
 
+  // ✅ 1. Add state to track fetch timestamps
+  lastFetched: {
+    plans: number | null;
+    subscriptions: number | null;
+    orders: number | null;
+    answers: number | null;
+    mentorshipSessions: number | null;
+    subjects: number | null;
+  };
+
   // Actions
-  fetchPlans: () => Promise<void>;
-  fetchUserSubscriptions: () => Promise<void>;
-  fetchUserOrders: () => Promise<void>;
-  fetchUserAnswers: () => Promise<void>;
-  fetchUserMentorshipSessions: () => Promise<void>;
-  fetchSubjects: () => Promise<void>;
+  fetchPlans: (options?: FetchOptions) => Promise<void>;
+  fetchUserSubscriptions: (options?: FetchOptions) => Promise<void>;
+  fetchUserOrders: (options?: FetchOptions) => Promise<void>;
+  fetchUserAnswers: (options?: FetchOptions) => Promise<void>;
+  fetchUserMentorshipSessions: (options?: FetchOptions) => Promise<void>;
+  fetchSubjects: (options?: FetchOptions) => Promise<void>;
   purchasePlan: (planId: string) => Promise<void>;
-  submitAnswerSheet: (data: AnswerSubmission) => Promise<string | void>;
+  submitAnswerSheet: (data: AnswerSubmission) => Promise<string | null>;
   requestMentorshipSession: (data: MentorshipRequest) => Promise<void>;
   cancelSubscription: (subscriptionId: string) => Promise<void>;
 };
+
+const CACHE_DURATION_MS = 2 * 60 * 1000;
 
 export const useStudentStore = create<StudentState>((set, get) => ({
   // Initial State
@@ -107,10 +123,30 @@ export const useStudentStore = create<StudentState>((set, get) => ({
   loading: false,
   error: null,
   subjects: null,
+  // ✅ 3. Initialize lastFetched timestamps
+  lastFetched: {
+    plans: null,
+    subscriptions: null,
+    orders: null,
+    answers: null,
+    mentorshipSessions: null,
+    subjects: null,
+  },
 
   // --- FETCH ACTIONS ---
 
-  fetchPlans: async () => {
+  fetchPlans: async (options) => {
+    const { plans, lastFetched } = get();
+    if (
+      !options?.force &&
+      plans &&
+      lastFetched.plans &&
+      Date.now() - lastFetched.plans < CACHE_DURATION_MS
+    ) {
+      console.info("Using cached data");
+      return; // Use cached data
+    }
+
     set({ loading: true, error: null });
     try {
       const supabase = await createClient();
@@ -121,7 +157,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         .order("price", { ascending: true });
 
       if (error) throw error;
-      set({ plans: data as Plan[] });
+      set({
+        plans: data as Plan[],
+        lastFetched: { ...get().lastFetched, plans: Date.now() },
+      });
     } catch (err: any) {
       toast.error("Failed to fetch plans.");
       set({ error: err.message });
@@ -130,7 +169,17 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  fetchUserSubscriptions: async () => {
+  fetchUserSubscriptions: async (options) => {
+    const { subscriptions, lastFetched } = get();
+    if (
+      !options?.force &&
+      subscriptions &&
+      lastFetched.subscriptions &&
+      Date.now() - lastFetched.subscriptions < CACHE_DURATION_MS
+    ) {
+      return;
+    }
+
     const { user } = useAuthStore.getState();
     if (!user) return;
 
@@ -144,7 +193,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      set({ subscriptions: data as SubscriptionWithPlan[] });
+      set({
+        subscriptions: data as SubscriptionWithPlan[],
+        lastFetched: { ...get().lastFetched, subscriptions: Date.now() },
+      });
     } catch (err: any) {
       toast.error("Failed to fetch subscriptions.");
       set({ error: err.message });
@@ -153,7 +205,18 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  fetchUserOrders: async () => {
+  fetchUserOrders: async (options) => {
+
+    const { orders, lastFetched } = get();
+    if (
+      !options?.force &&
+      orders &&
+      lastFetched.orders &&
+      Date.now() - lastFetched.orders < CACHE_DURATION_MS
+    ) {
+      return;
+    }
+
     const { user } = useAuthStore.getState();
     if (!user) return;
 
@@ -167,7 +230,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      set({ orders: data as OrderWithPlan[] });
+      set({
+        orders: data as OrderWithPlan[],
+        lastFetched: { ...get().lastFetched, orders: Date.now() },
+      });
     } catch (err: any) {
       toast.error("Failed to fetch order history.");
       set({ error: err.message });
@@ -176,7 +242,16 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  fetchUserAnswers: async () => {
+  fetchUserAnswers: async (options) => {
+    const { answers, lastFetched } = get();
+    if (
+      !options?.force &&
+      answers &&
+      lastFetched.answers &&
+      Date.now() - lastFetched.answers < CACHE_DURATION_MS
+    ) {
+      return;
+    }
     const { user } = useAuthStore.getState();
     if (!user) return;
 
@@ -199,7 +274,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
 
       if (error) throw error;
 
-      set({ answers: data as AnswerWithDetails[] });
+      set({
+        answers: data as AnswerWithDetails[],
+        lastFetched: { ...get().lastFetched, answers: Date.now() },
+      });
     } catch (err: any) {
       console.error("Error fetching answer sheets:", err);
       toast.error("Failed to fetch your answer sheets.");
@@ -209,7 +287,16 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  fetchUserMentorshipSessions: async () => {
+  fetchUserMentorshipSessions: async (options) => {
+    const { mentorshipSessions, lastFetched } = get();
+    if (
+      !options?.force &&
+      mentorshipSessions &&
+      lastFetched.mentorshipSessions &&
+      Date.now() - lastFetched.mentorshipSessions < CACHE_DURATION_MS
+    ) {
+      return;
+    }
     const { user } = useAuthStore.getState();
     if (!user) return;
 
@@ -223,7 +310,11 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         .order("requested_at", { ascending: false });
 
       if (error) throw error;
-      set({ mentorshipSessions: data as any });
+      set({ 
+            mentorshipSessions: data as any,
+            lastFetched: { ...get().lastFetched, mentorshipSessions: Date.now() }
+        });
+
     } catch (err: any) {
       toast.error("Failed to fetch mentorship sessions.");
       set({ error: err.message });
@@ -232,7 +323,16 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  fetchSubjects: async () => {
+  fetchSubjects: async (options) => {
+        const { subjects, lastFetched } = get();
+    if (
+      !options?.force &&
+      subjects &&
+      lastFetched.subjects &&
+      Date.now() - lastFetched.subjects < CACHE_DURATION_MS
+    ) {
+      return;
+    }
     if (get().subjects) return;
     set({ loading: true, error: null });
     try {
@@ -243,7 +343,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         .order("name", { ascending: true });
 
       if (error) throw error;
-      set({ subjects: data });
+      set({
+            subjects: data,
+            lastFetched: { ...get().lastFetched, subjects: Date.now() }
+        });
     } catch (err: any) {
       toast.error("Failed to load subjects.");
       set({ error: err.message });
@@ -278,8 +381,8 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       toast.success("Plan purchased successfully!");
 
       // Refresh the user's data to reflect the changes made by the function
-      get().fetchUserOrders(); // Refresh the order history
-      refreshProfile(); // Refresh the profile to get the new credit balance
+      get().fetchUserOrders({ force: true }); // Refresh the order history
+      refreshProfile({ force: true }); // Refresh the profile to get the new credit balance
     } catch (err: any) {
       // Display the specific error message from the database function
       toast.error(
@@ -309,7 +412,8 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       if (error) throw error;
 
       // refresh profile to update balances, credits, etc.
-      await refreshProfile();
+      get().fetchUserAnswers({ force: true });
+      await refreshProfile({ force: true });
 
       return newAnswerId;
     } catch (err: any) {
@@ -322,6 +426,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
   },
 
   requestMentorshipSession: async (data: MentorshipRequest) => {
+    const { refreshProfile } = useAuthStore.getState();
     const { user, profile } = useAuthStore.getState();
     if (!user || !profile) return;
 
@@ -340,7 +445,8 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       if (error) throw error;
 
       toast.success("Mentorship session requested!");
-      get().fetchUserMentorshipSessions();
+      get().fetchUserMentorshipSessions({ force: true });
+      await refreshProfile({ force: true });
     } catch (err: any) {
       toast.error("Failed to request session.");
       set({ error: err.message });
@@ -361,7 +467,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       if (error) throw error;
 
       toast.success("Subscription has been canceled.");
-      get().fetchUserSubscriptions();
+      get().fetchUserSubscriptions({ force: true });
     } catch (err: any) {
       toast.error("Failed to cancel subscription.");
       set({ error: err.message });

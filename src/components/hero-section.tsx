@@ -1,10 +1,49 @@
 'use client'
+
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { ChevronRight, CirclePlay } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import Image from 'next/image'
+import { useAuthStore } from '@/stores/auth'
+import { useEffect } from 'react'
 
 export default function HeroSection() {
+    // 1. Get user and profile from the auth store
+    const { user, profile, fetchUser } = useAuthStore()
+
+    // Fetch user data when the component mounts to ensure state is up-to-date
+    useEffect(() => {
+        fetchUser()
+    }, [fetchUser])
+
+    // Helper function to determine the correct path for the button based on login status and role
+    const getButtonPath = () => {
+        // If the user isn't logged in (or profile is still loading), send them to the login page
+        if (!user || !profile) {
+            return '/login'
+        }
+
+        // Check the user's role to determine the destination
+        switch (profile.role) {
+            case 'student':
+                // If the user is a student, link to the answer sheet submission page
+                return '/student/answersheet'
+            case 'admin':
+                // If admin, link to their dashboard
+                return '/admin/dashboard'
+            case 'faculty':
+                // If faculty, link to their dashboard
+                return '/faculty/dashboard'
+            default:
+                // Fallback for any other case (e.g., an unknown role) is the login page
+                return '/login'
+        }
+    }
+
+    // Call the function to get the dynamic path
+    const submitAnswerPath = getButtonPath()
+
+    
     return (
         <main className="overflow-hidden">
             <section className="bg-linear-to-b to-muted from-background h-screen">
@@ -28,7 +67,8 @@ export default function HeroSection() {
                                             size="lg"
                                             className="pr-4.5 bg-primary text-primary-foreground hover:bg-primary/90 dark:bg-primary dark:text-white"
                                         >
-                                            <Link href="/login">
+                                            {/* 4. Use the dynamic path for the Link's href */}
+                                            <Link href={submitAnswerPath}>
                                                 <span className="text-nowrap">Submit your answers</span>
                                                 <ChevronRight className="opacity-70" />
                                             </Link>

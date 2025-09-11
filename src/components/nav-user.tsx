@@ -135,10 +135,6 @@ export function NavUser() {
                 </DropdownMenuItem>
               </Link>
               <DropdownMenuItem>
-                <IconCreditCard className="mr-2 size-4" />
-                <span>Billing</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
                 <IconNotification className="mr-2 size-4" />
                 <span>Notifications</span>
               </DropdownMenuItem>

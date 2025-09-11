@@ -26,9 +26,9 @@ export function Navbar() {
 
   const getDashboardPath = () => {
     if (!profile) return '/login'
-    if (profile.role === 'admin') return '/admin'
-    if (profile.role === 'faculty') return '/faculty'
-    return '/student'
+    if (profile.role === 'admin') return '/admin/dashboard'
+    if (profile.role === 'faculty') return '/faculty/dashboard'
+    return '/student/dashboard'
   }
 
   return (

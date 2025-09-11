@@ -92,17 +92,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     // default: student
     return {
       navMain: [
-        { title: "Dashboard", url: `${basePath}/account`, icon: IconDashboard },
+        { title: "Dashboard", url: `${basePath}/dashboard`, icon: IconDashboard },
         { title: "Submit Answer Sheet", url: `${basePath}/answersheet`, icon: IconCirclePlus },
         { title: "My Submissions", url: `${basePath}/answers-list`, icon: IconFileDescription },
         { title: "My Orders", url: `${basePath}/orders-list`, icon: IconArrowsSort },
         { title: "My Subscriptions", url: `${basePath}/subscriptions`, icon: IconPaywall },
       ],
       documents: [],
-      navSecondary: [
-        { title: "Settings", url: `${basePath}/settings`, icon: IconSettings },
-        { title: "Help", url: "#", icon: IconHelp },
-      ],
+      navSecondary: [],
     }
   }, [profile?.role, basePath])
 
@@ -115,9 +112,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href={basePath || "/"}>
+              <a href={"/"}>
                 <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">UPSC Inc.</span>
+                <span className="text-base font-semibold">Mains Cracker</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
