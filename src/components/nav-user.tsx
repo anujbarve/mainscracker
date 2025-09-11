@@ -43,6 +43,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { usePathname } from "next/navigation"
+import { Sun, Moon } from "lucide-react"
 
 export function useBasePath() {
   const pathname = usePathname()
@@ -61,7 +62,11 @@ export function NavUser() {
   const user = useAuthStore((state) => state.user)
   const profile = useAuthStore((state) => state.profile)
   const logout = useAuthStore((state) => state.logout)
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme } = useTheme();
+
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
 
   // Use profile full_name, with fallback to email for display
   const displayName = profile?.full_name || user?.email || "User"
@@ -122,8 +127,6 @@ export function NavUser() {
 
             <DropdownMenuSeparator />
 
-            <DropdownMenuGroup>
-
               <Link href={`${basePath}/account`}>
                 <DropdownMenuItem>
                   <IconUserCircle className="mr-2 size-4" />
@@ -140,41 +143,19 @@ export function NavUser() {
                 <span>Notifications</span>
               </DropdownMenuItem>
 
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <ThemeIcon className="mr-2 size-4" />
-                  <span>Theme</span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuItem onClick={() => setTheme("light")}>
-                      <IconSun className="mr-2 size-4" />
-                      <span>Light</span>
-                      {theme === 'light' && <IconCheck className="ml-auto size-4" />}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setTheme("dark")}>
-                      <IconMoon className="mr-2 size-4" />
-                      <span>Dark</span>
-                      {theme === 'dark' && <IconCheck className="ml-auto size-4" />}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setTheme("system")}>
-                      <IconDeviceDesktop className="mr-2 size-4" />
-                      <span>System</span>
-                      {theme === 'system' && <IconCheck className="ml-auto size-4" />}
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-            </DropdownMenuGroup>
+              <DropdownMenuItem onClick={toggleTheme}>
+                {theme === "dark" ? <Moon className="mr-2 size-4" />  : <Sun  className="mr-2 size-4" />}
+                <span>Theme</span>
+              </DropdownMenuItem>
 
-            <DropdownMenuSeparator />
+              <DropdownMenuSeparator />
 
-            <DropdownMenuItem asChild>
-              <Link href="/" onClick={() => logout()}>
-                <IconLogout className="mr-2 size-4" />
-                <span>Log out</span>
-              </Link>
-            </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/" onClick={() => logout()}>
+                  <IconLogout className="mr-2 size-4" />
+                  <span>Log out</span>
+                </Link>
+              </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
