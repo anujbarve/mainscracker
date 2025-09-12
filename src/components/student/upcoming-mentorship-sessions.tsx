@@ -55,7 +55,7 @@ export function UpcomingMentorshipSessions({ sessions }: UpcomingMentorshipSessi
               Book a session to get expert guidance.
             </p>
             <Button asChild>
-              <Link href="/student/mentorship/request">Request a Session</Link>
+              <Link href="/student/request-mentorship/">Request a Session</Link>
             </Button>
           </div>
         )}
