@@ -1,76 +1,79 @@
-'use client'
+"use client";
 
-import Link from "next/link"
-import { useTheme } from "next-themes"
-import { useAuthStore } from "@/stores/auth"
+import { useEffect } from "react";
+import Link from "next/link";
+import { useTheme } from "next-themes";
+import { useAuthStore } from "@/stores/auth";
+import { useStudentStore } from "@/stores/student";
 
 // Icons
 import {
-  IconCreditCard,
   IconDotsVertical,
   IconLogout,
   IconNotification,
   IconUserCircle,
   IconSun,
   IconMoon,
-  IconDeviceDesktop,
-  IconCheck,
-} from "@tabler/icons-react"
+} from "@tabler/icons-react";
 
 // Shadcn UI Components
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuPortal,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar"
-import { usePathname } from "next/navigation"
+} from "@/components/ui/sidebar";
+import { usePathname } from "next/navigation";
+import { Sun, Moon } from "lucide-react";
 
 export function useBasePath() {
-  const pathname = usePathname()
-  if (pathname.startsWith("/student")) return "/student"
-  if (pathname.startsWith("/faculty")) return "/faculty"
-  if (pathname.startsWith("/admin")) return "/admin"
-  return "" // default
+  const pathname = usePathname();
+  if (pathname.startsWith("/student")) return "/student";
+  if (pathname.startsWith("/faculty")) return "/faculty";
+  if (pathname.startsWith("/admin")) return "/admin";
+  return ""; // default
 }
 
-
 export function NavUser() {
-  const { isMobile } = useSidebar()
-  let basePath = useBasePath()
+  const { isMobile } = useSidebar();
+  let basePath = useBasePath();
 
-  // Select each piece of state individually to prevent infinite re-renders
-  const user = useAuthStore((state) => state.user)
-  const profile = useAuthStore((state) => state.profile)
-  const logout = useAuthStore((state) => state.logout)
-  const { theme, setTheme } = useTheme()
+  // Auth store state
+  const user = useAuthStore((state) => state.user);
+  const profile = useAuthStore((state) => state.profile);
+  const logout = useAuthStore((state) => state.logout);
+  const { theme, setTheme } = useTheme();
 
-  // Use profile full_name, with fallback to email for display
-  const displayName = profile?.full_name || user?.email || "User"
-  const displayEmail = user?.email || "No email"
+  // ✅ THE FIX: Select each piece of state individually.
+  // This returns stable primitives (number, function) instead of a new object on every render.
+  const unreadNotificationCount = useStudentStore((state) => state.unreadNotificationCount);
+  const fetchUserNotifications = useStudentStore((state) => state.fetchUserNotifications);
 
-  // ✅ FIX 2: Determine the correct icon based on the current theme for consistency
-  const ThemeIcon = theme === 'dark' ? IconMoon : theme === 'system' ? IconDeviceDesktop : IconSun;
+  // Fetch notifications when the user is available
+  useEffect(() => {
+    if (user) {
+      fetchUserNotifications();
+    }
+  }, [user, fetchUserNotifications]);
 
-  if (!user) return null
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
+
+  const displayName = profile?.full_name || user?.email || "User";
+  const displayEmail = user?.email || "No email";
+
+  if (!user) return null;
 
   return (
     <SidebarMenu>
@@ -122,50 +125,36 @@ export function NavUser() {
 
             <DropdownMenuSeparator />
 
-            <DropdownMenuGroup>
-
-              <Link href={`${basePath}/account`}>
-                <DropdownMenuItem>
-                  <IconUserCircle className="mr-2 size-4" />
-                  <span>Account</span>
-
-                </DropdownMenuItem>
-              </Link>
+            <Link href={`${basePath}/account`}>
               <DropdownMenuItem>
-                <IconCreditCard className="mr-2 size-4" />
-                <span>Billing</span>
+                <IconUserCircle className="mr-2 size-4" />
+                <span>Account</span>
               </DropdownMenuItem>
+            </Link>
+
+            <Link href={`${basePath}/notifications`}>
               <DropdownMenuItem>
                 <IconNotification className="mr-2 size-4" />
                 <span>Notifications</span>
+                {unreadNotificationCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="ml-auto h-5 rounded-full px-1.5 text-xs font-semibold"
+                  >
+                    {unreadNotificationCount}
+                  </Badge>
+                )}
               </DropdownMenuItem>
+            </Link>
 
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <ThemeIcon className="mr-2 size-4" />
-                  <span>Theme</span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuItem onClick={() => setTheme("light")}>
-                      <IconSun className="mr-2 size-4" />
-                      <span>Light</span>
-                      {theme === 'light' && <IconCheck className="ml-auto size-4" />}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setTheme("dark")}>
-                      <IconMoon className="mr-2 size-4" />
-                      <span>Dark</span>
-                      {theme === 'dark' && <IconCheck className="ml-auto size-4" />}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setTheme("system")}>
-                      <IconDeviceDesktop className="mr-2 size-4" />
-                      <span>System</span>
-                      {theme === 'system' && <IconCheck className="ml-auto size-4" />}
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-            </DropdownMenuGroup>
+            <DropdownMenuItem onClick={toggleTheme}>
+              {theme === "dark" ? (
+                <Moon className="mr-2 size-4" />
+              ) : (
+                <Sun className="mr-2 size-4" />
+              )}
+              <span>Theme</span>
+            </DropdownMenuItem>
 
             <DropdownMenuSeparator />
 

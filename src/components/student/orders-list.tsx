@@ -42,6 +42,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
 } from "@tabler/icons-react";
+import { useRouter } from "next/navigation";
 
 // A dedicated status badge for order statuses
 const OrderStatusBadge = ({ status }: { status: string }) => {
@@ -118,9 +119,10 @@ const columns: ColumnDef<OrderWithPlan>[] = [
 ];
 
 
-// --- Main Table Component for Order History (No changes needed here) ---
+// --- Main Table Component for Order History ---
 export function OrderHistoryTable() {
   const { orders, fetchUserOrders, loading } = useStudentStore();
+  const router = useRouter(); // ✅ 2. Initialize the router
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
 
@@ -141,13 +143,12 @@ export function OrderHistoryTable() {
   });
 
   return (
-    // ... JSX for the table remains the same
     <main className="w-full min-h-[calc(100vh-theme(spacing.16))] p-4 sm:p-6 lg:p-8">
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>Order History</CardTitle>
           <CardDescription>
-            A record of all your plan purchases and transactions.
+            A record of all your plan purchases and transactions. Click a row to see more details.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -188,7 +189,12 @@ export function OrderHistoryTable() {
                   ))
                 ) : table.getRowModel().rows?.length ? (
                   table.getRowModel().rows.map((row) => (
-                    <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && "selected"}
+                      className="cursor-pointer hover:bg-muted/50" // ✅ 3. Add styles for interactivity
+                      onClick={() => router.push(`/student/orders-list/${row.original.id}`)} // ✅ 4. Add onClick handler for navigation
+                    >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}

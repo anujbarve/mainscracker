@@ -22,8 +22,8 @@ type AnswerSubmission = {
 };
 
 type MentorshipRequest = {
-  mentor_id?: string;
   student_notes: string;
+  duration_minutes: number;
 };
 
 type Subject = {
@@ -72,6 +72,45 @@ export type AnswerWithDetails = {
   } | null;
 };
 
+type FetchOptions = {
+  force?: boolean; // Set to true to bypass the cache
+};
+
+export type NotificationType =
+  | "answer_assigned"
+  | "answer_evaluated"
+  | "mentorship_scheduled"
+  | "credit_low"
+  | "subscription_expiring"
+  | "purchase_successful"
+  | "admin_credit_adjustment";
+
+export type NotificationData =
+  | { order_id: string }
+  | { answer_id: string }
+  | { subscription_id: string; plan_name: string }
+  | { credit_type: "gs" | "specialized" | "mentorship"; amount: number }
+  | { adjusted_by: string; amount: number; reason: string }
+  | null;
+
+export type Notification = {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  data: NotificationData | null;
+  is_read: boolean;
+  read_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+};
+
+export type MentorProfile = {
+  id: string;
+  full_name: string | null;
+};
+
 // Define the state and actions for the store
 type StudentState = {
   // State
@@ -83,19 +122,40 @@ type StudentState = {
   loading: boolean;
   error: string | null;
   subjects: Subject[] | null;
+  notifications: Notification[] | null;
+  unreadNotificationCount: number;
+  mentors: MentorProfile[] | null;
+
+  // ✅ 1. Add state to track fetch timestamps
+  lastFetched: {
+    plans: number | null;
+    subscriptions: number | null;
+    orders: number | null;
+    answers: number | null;
+    mentorshipSessions: number | null;
+    subjects: number | null;
+    notifications: number | null; // Add notifications here
+    mentors: number | null; // Add mentors here
+  };
 
   // Actions
-  fetchPlans: () => Promise<void>;
-  fetchUserSubscriptions: () => Promise<void>;
-  fetchUserOrders: () => Promise<void>;
-  fetchUserAnswers: () => Promise<void>;
-  fetchUserMentorshipSessions: () => Promise<void>;
-  fetchSubjects: () => Promise<void>;
+  fetchPlans: (options?: FetchOptions) => Promise<void>;
+  fetchUserSubscriptions: (options?: FetchOptions) => Promise<void>;
+  fetchUserOrders: (options?: FetchOptions) => Promise<void>;
+  fetchUserAnswers: (options?: FetchOptions) => Promise<void>;
+  fetchUserMentorshipSessions: (options?: FetchOptions) => Promise<void>;
+  fetchSubjects: (options?: FetchOptions) => Promise<void>;
   purchasePlan: (planId: string) => Promise<void>;
-  submitAnswerSheet: (data: AnswerSubmission) => Promise<string | void>;
-  requestMentorshipSession: (data: MentorshipRequest) => Promise<void>;
+  submitAnswerSheet: (data: AnswerSubmission) => Promise<string | null>;
+  requestMentorshipSession: (data: MentorshipRequest) => Promise< string | null>;
   cancelSubscription: (subscriptionId: string) => Promise<void>;
+  fetchUserNotifications: (options?: FetchOptions) => Promise<void>;
+  markNotificationAsRead: (notificationId: string) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
+  fetchMentors: (options?: FetchOptions) => Promise<void>;
 };
+
+const CACHE_DURATION_MS = 2 * 60 * 1000;
 
 export const useStudentStore = create<StudentState>((set, get) => ({
   // Initial State
@@ -107,10 +167,35 @@ export const useStudentStore = create<StudentState>((set, get) => ({
   loading: false,
   error: null,
   subjects: null,
+  notifications: null,
+  unreadNotificationCount: 0,
+  mentors: null, // Initialize here
+  // ✅ 3. Initialize lastFetched timestamps
+  lastFetched: {
+    plans: null,
+    subscriptions: null,
+    orders: null,
+    answers: null,
+    mentorshipSessions: null,
+    subjects: null,
+    notifications: null, // Initialize here
+    mentors: null,
+  },
 
   // --- FETCH ACTIONS ---
 
-  fetchPlans: async () => {
+  fetchPlans: async (options) => {
+    const { plans, lastFetched } = get();
+    if (
+      !options?.force &&
+      plans &&
+      lastFetched.plans &&
+      Date.now() - lastFetched.plans < CACHE_DURATION_MS
+    ) {
+      console.info("Using cached data");
+      return; // Use cached data
+    }
+
     set({ loading: true, error: null });
     try {
       const supabase = await createClient();
@@ -121,7 +206,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         .order("price", { ascending: true });
 
       if (error) throw error;
-      set({ plans: data as Plan[] });
+      set({
+        plans: data as Plan[],
+        lastFetched: { ...get().lastFetched, plans: Date.now() },
+      });
     } catch (err: any) {
       toast.error("Failed to fetch plans.");
       set({ error: err.message });
@@ -130,7 +218,17 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  fetchUserSubscriptions: async () => {
+  fetchUserSubscriptions: async (options) => {
+    const { subscriptions, lastFetched } = get();
+    if (
+      !options?.force &&
+      subscriptions &&
+      lastFetched.subscriptions &&
+      Date.now() - lastFetched.subscriptions < CACHE_DURATION_MS
+    ) {
+      return;
+    }
+
     const { user } = useAuthStore.getState();
     if (!user) return;
 
@@ -144,7 +242,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      set({ subscriptions: data as SubscriptionWithPlan[] });
+      set({
+        subscriptions: data as SubscriptionWithPlan[],
+        lastFetched: { ...get().lastFetched, subscriptions: Date.now() },
+      });
     } catch (err: any) {
       toast.error("Failed to fetch subscriptions.");
       set({ error: err.message });
@@ -153,7 +254,17 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  fetchUserOrders: async () => {
+  fetchUserOrders: async (options) => {
+    const { orders, lastFetched } = get();
+    if (
+      !options?.force &&
+      orders &&
+      lastFetched.orders &&
+      Date.now() - lastFetched.orders < CACHE_DURATION_MS
+    ) {
+      return;
+    }
+
     const { user } = useAuthStore.getState();
     if (!user) return;
 
@@ -167,7 +278,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      set({ orders: data as OrderWithPlan[] });
+      set({
+        orders: data as OrderWithPlan[],
+        lastFetched: { ...get().lastFetched, orders: Date.now() },
+      });
     } catch (err: any) {
       toast.error("Failed to fetch order history.");
       set({ error: err.message });
@@ -176,7 +290,16 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  fetchUserAnswers: async () => {
+  fetchUserAnswers: async (options) => {
+    const { answers, lastFetched } = get();
+    if (
+      !options?.force &&
+      answers &&
+      lastFetched.answers &&
+      Date.now() - lastFetched.answers < CACHE_DURATION_MS
+    ) {
+      return;
+    }
     const { user } = useAuthStore.getState();
     if (!user) return;
 
@@ -199,7 +322,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
 
       if (error) throw error;
 
-      set({ answers: data as AnswerWithDetails[] });
+      set({
+        answers: data as AnswerWithDetails[],
+        lastFetched: { ...get().lastFetched, answers: Date.now() },
+      });
     } catch (err: any) {
       console.error("Error fetching answer sheets:", err);
       toast.error("Failed to fetch your answer sheets.");
@@ -209,7 +335,16 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  fetchUserMentorshipSessions: async () => {
+  fetchUserMentorshipSessions: async (options) => {
+    const { mentorshipSessions, lastFetched } = get();
+    if (
+      !options?.force &&
+      mentorshipSessions &&
+      lastFetched.mentorshipSessions &&
+      Date.now() - lastFetched.mentorshipSessions < CACHE_DURATION_MS
+    ) {
+      return;
+    }
     const { user } = useAuthStore.getState();
     if (!user) return;
 
@@ -223,7 +358,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         .order("requested_at", { ascending: false });
 
       if (error) throw error;
-      set({ mentorshipSessions: data as any });
+      set({
+        mentorshipSessions: data as any,
+        lastFetched: { ...get().lastFetched, mentorshipSessions: Date.now() },
+      });
     } catch (err: any) {
       toast.error("Failed to fetch mentorship sessions.");
       set({ error: err.message });
@@ -232,7 +370,16 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  fetchSubjects: async () => {
+  fetchSubjects: async (options) => {
+    const { subjects, lastFetched } = get();
+    if (
+      !options?.force &&
+      subjects &&
+      lastFetched.subjects &&
+      Date.now() - lastFetched.subjects < CACHE_DURATION_MS
+    ) {
+      return;
+    }
     if (get().subjects) return;
     set({ loading: true, error: null });
     try {
@@ -243,10 +390,90 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         .order("name", { ascending: true });
 
       if (error) throw error;
-      set({ subjects: data });
+      set({
+        subjects: data,
+        lastFetched: { ...get().lastFetched, subjects: Date.now() },
+      });
     } catch (err: any) {
       toast.error("Failed to load subjects.");
       set({ error: err.message });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  fetchUserNotifications: async (options) => {
+    const { notifications, lastFetched } = get();
+    if (
+      !options?.force &&
+      notifications &&
+      lastFetched.notifications &&
+      Date.now() - lastFetched.notifications < CACHE_DURATION_MS
+    ) {
+      return; // Use cached data
+    }
+
+    const { user } = useAuthStore.getState();
+    if (!user) return;
+
+    set({ loading: true, error: null });
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const unreadCount = data.filter((n) => !n.is_read).length;
+
+      set({
+        notifications: data as Notification[],
+        unreadNotificationCount: unreadCount,
+        lastFetched: { ...get().lastFetched, notifications: Date.now() },
+      });
+    } catch (err: any) {
+      console.error("Error fetching notifications:", err);
+      toast.error("Failed to fetch notifications.");
+      set({ error: err.message || "An unknown error occurred." });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  fetchMentors: async (options) => {
+    const { mentors, lastFetched } = get();
+    if (
+      !options?.force &&
+      mentors &&
+      lastFetched.mentors &&
+      Date.now() - lastFetched.mentors < CACHE_DURATION_MS
+    ) {
+      return; // Use cached data
+    }
+
+    set({ loading: true, error: null });
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("role", "faculty") // Filter for users who are faculty/mentors
+        .eq("is_available_for_mentorship", true) // Ensure they are available
+        .order("full_name", { ascending: true });
+
+      if (error) throw error;
+
+      set({
+        mentors: data as MentorProfile[],
+        lastFetched: { ...get().lastFetched, mentors: Date.now() },
+      });
+    } catch (err: any) {
+      console.error("Error fetching mentors:", err);
+      toast.error("Failed to load available mentors.");
+      set({ error: err.message || "An unknown error occurred." });
     } finally {
       set({ loading: false });
     }
@@ -278,8 +505,8 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       toast.success("Plan purchased successfully!");
 
       // Refresh the user's data to reflect the changes made by the function
-      get().fetchUserOrders(); // Refresh the order history
-      refreshProfile(); // Refresh the profile to get the new credit balance
+      get().fetchUserOrders({ force: true }); // Refresh the order history
+      refreshProfile({ force: true }); // Refresh the profile to get the new credit balance
     } catch (err: any) {
       // Display the specific error message from the database function
       toast.error(
@@ -309,7 +536,8 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       if (error) throw error;
 
       // refresh profile to update balances, credits, etc.
-      await refreshProfile();
+      get().fetchUserAnswers({ force: true });
+      await refreshProfile({ force: true });
 
       return newAnswerId;
     } catch (err: any) {
@@ -322,28 +550,42 @@ export const useStudentStore = create<StudentState>((set, get) => ({
   },
 
   requestMentorshipSession: async (data: MentorshipRequest) => {
-    const { user, profile } = useAuthStore.getState();
-    if (!user || !profile) return;
-
-    if (profile.mentorship_credit_balance < 1) {
-      toast.error("Insufficient credits to book a session.");
-      return;
-    }
+    const { refreshProfile } = useAuthStore.getState();
 
     set({ loading: true, error: null });
     try {
       const supabase = await createClient();
-      const { error } = await supabase.from("mentorship_sessions").insert({
-        student_id: user.id,
-        ...data,
-      });
-      if (error) throw error;
 
-      toast.success("Mentorship session requested!");
-      get().fetchUserMentorshipSessions();
+      // Call the Postgres function via RPC
+      const { data: newSessionId, error } = await supabase.rpc(
+        "request_mentorship", // IMPORTANT: Ensure this is the correct name of your function in SQL
+        {
+          student_notes_in: data.student_notes,
+          preferred_duration_in: data.duration_minutes,
+        }
+      );
+
+      // The RPC function handles all checks (auth, balance, etc.)
+      // If there's an error, it will be in the `error` object.
+      if (error) {
+        throw error;
+      }
+
+      // The RPC function created the notification, so we don't need to show a toast here,
+      // but a confirmation is still good UX.
+      toast.success("Mentorship request submitted successfully!");
+
+      // Refresh client-side state that was changed by the function
+      get().fetchUserMentorshipSessions({ force: true });
+      get().fetchUserNotifications({ force: true }); // Also refresh notifications
+      await refreshProfile({ force: true }); // Refreshes credit balance
+
+      return newSessionId as string; // Return the new ID on success
     } catch (err: any) {
-      toast.error("Failed to request session.");
+      // This will display the exact error message from your `RAISE EXCEPTION` calls
+      toast.error(err.message || "Failed to request session.");
       set({ error: err.message });
+      return null; // Return null on failure
     } finally {
       set({ loading: false });
     }
@@ -361,12 +603,78 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       if (error) throw error;
 
       toast.success("Subscription has been canceled.");
-      get().fetchUserSubscriptions();
+      get().fetchUserSubscriptions({ force: true });
     } catch (err: any) {
       toast.error("Failed to cancel subscription.");
       set({ error: err.message });
     } finally {
       set({ loading: false });
+    }
+  },
+
+  markNotificationAsRead: async (notificationId: string) => {
+    const currentNotifications = get().notifications;
+    // Optimistically update the UI first for a better user experience
+    const updatedNotifications =
+      currentNotifications?.map((n) =>
+        n.id === notificationId ? { ...n, is_read: true } : n
+      ) ?? null;
+
+    if (updatedNotifications) {
+      set({
+        notifications: updatedNotifications,
+        unreadNotificationCount: get().unreadNotificationCount - 1,
+      });
+    }
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq("id", notificationId);
+
+      if (error) throw error;
+    } catch (err: any) {
+      toast.error("Failed to mark notification as read.");
+      // Revert the optimistic update on error
+      set({
+        notifications: currentNotifications,
+        unreadNotificationCount: get().unreadNotificationCount + 1,
+      });
+    }
+  },
+
+  markAllNotificationsAsRead: async () => {
+    const { user } = useAuthStore.getState();
+    if (!user) return;
+
+    const currentNotifications = get().notifications;
+
+    // Optimistic update
+    const updatedNotifications =
+      currentNotifications?.map((n) => ({ ...n, is_read: true })) ?? null;
+
+    set({ notifications: updatedNotifications, unreadNotificationCount: 0 });
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq("user_id", user.id)
+        .eq("is_read", false); // Only update those that are unread
+
+      if (error) throw error;
+    } catch (err: any) {
+      toast.error("Failed to mark all notifications as read.");
+      // Revert on error
+      const originalUnreadCount =
+        currentNotifications?.filter((n) => !n.is_read).length ?? 0;
+      set({
+        notifications: currentNotifications,
+        unreadNotificationCount: originalUnreadCount,
+      });
     }
   },
 }));
