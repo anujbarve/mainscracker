@@ -18,7 +18,14 @@ import {
   IconPaywall,
   IconArrowsSort,
   IconChalkboardTeacher,
-  IconCalendarTime
+  IconCalendarTime,
+  IconLayoutDashboard,
+  IconChalkboard,
+  IconFileText,
+  IconNotebook,
+  IconReportAnalytics,
+  IconListDetails,
+  IconCreditCard
 } from "@tabler/icons-react"
 
 import { NavDocuments } from "@/components/nav-documents"
@@ -56,21 +63,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     if (profile?.role === "admin") {
       return {
         navMain: [
-          { title: "Overview", url: `${basePath}/overview`, icon: IconDashboard },
+          { title: "Overview", url: `${basePath}/dashboard`, icon: IconLayoutDashboard },
           { title: "Manage Users", url: `${basePath}/users`, icon: IconUsers },
-          { title: "Manage Faculty", url: `${basePath}/faculty`, icon: IconChartBar },
-          { title: "Manage Submissions", url: `${basePath}/submissions`, icon: IconFolder },
-          { title: "Model Answer Papers", url: `${basePath}/papers`, icon: IconDatabase },
-        ],
-        documents: [
-          { name: "System Reports", url: `${basePath}/reports/system`, icon: IconReport },
-          { name: "Financial Reports", url: `${basePath}/reports/finance`, icon: IconFileWord },
-        ],
-        navSecondary: [
+          { title: "Manage Faculty", url: `${basePath}/faculty`, icon: IconChalkboard },
+          { title: "Manage Answer Sheets", url: `${basePath}/answersheets`, icon: IconFileText },
+          { title: "Manage Mentorship Sessions", url: `${basePath}/mentorships`, icon: IconNotebook },
+          { title: "Reports", url: `${basePath}/reports`, icon: IconReportAnalytics },
+          { title: "Logs", url: `${basePath}/logs`, icon: IconListDetails },
+          { title: "Billing", url: `${basePath}/billing`, icon: IconCreditCard },
           { title: "System Settings", url: `${basePath}/settings`, icon: IconSettings },
-          { title: "Get Help", url: "#", icon: IconHelp },
-          { title: "Search", url: "#", icon: IconSearch },
         ],
+        documents: [],
+        navSecondary: [],
       }
     }
 
