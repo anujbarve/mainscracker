@@ -254,12 +254,40 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // ... (forgotPassword and resetPassword remain the same)
       forgotPassword: async (email) => {
-        /* ... */
+         const supabase = await createClient();
+        set({ loading: true, error: null });
+        try {
+          const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/reset-password`,
+          });
+          if (error) throw error;
+          toast.success("Password reset link sent! Check your email.");
+        } catch (err: any) {
+          set({ error: err.message });
+          toast.error(err.message);
+        } finally {
+          set({ loading: false });
+        }
       },
       resetPassword: async (newPassword) => {
-        /* ... */
+        const supabase = await createClient();
+        set({ loading: true, error: null });
+        try {
+          const { data, error } = await supabase.auth.updateUser({
+            password: newPassword,
+          });
+          if (error) throw error;
+
+          set({ user: data.user });
+          toast.success("Password updated successfully! You can now log in.");
+          window.location.href = "/login";
+        } catch (err: any) {
+          set({ error: err.message });
+          toast.error(err.message);
+        } finally {
+          set({ loading: false });
+        }
       },
     }),
     {
