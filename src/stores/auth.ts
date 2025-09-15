@@ -18,6 +18,8 @@ export type Profile = {
   mentorship_credit_balance: number;
   created_at: string;
   updated_at: string;
+  total_answers_evaluated: number;
+  total_mentorship_sessions: number;
 };
 
 // Options for fetch actions
