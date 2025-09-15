@@ -32,7 +32,6 @@ export default function ResetPasswordPage() {
         if (error) {
           setMessage("Invalid or expired recovery link.")
         } else {
-          // ✅ Session is now set in localStorage
           await fetchUser()
         }
       }
