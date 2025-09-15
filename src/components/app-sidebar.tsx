@@ -21,7 +21,6 @@ import {
   IconCalendarTime,
   IconClipboardList,
   IconLayoutDashboard,
-  IconChalkboard,
   IconFileText,
   IconNotebook,
   IconReportAnalytics,
@@ -66,7 +65,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         navMain: [
           { title: "Overview", url: `${basePath}/dashboard`, icon: IconLayoutDashboard },
           { title: "Manage Users", url: `${basePath}/users`, icon: IconUsers },
-          { title: "Manage Faculty", url: `${basePath}/faculty`, icon: IconChalkboard },
           { title: "Manage Answer Sheets", url: `${basePath}/answersheets`, icon: IconFileText },
           { title: "Manage Mentorship Sessions", url: `${basePath}/mentorships`, icon: IconNotebook },
           { title: "Reports", url: `${basePath}/reports`, icon: IconReportAnalytics },
