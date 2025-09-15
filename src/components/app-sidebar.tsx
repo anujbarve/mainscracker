@@ -19,6 +19,7 @@ import {
   IconArrowsSort,
   IconChalkboardTeacher,
   IconCalendarTime,
+  IconClipboardList,
   IconLayoutDashboard,
   IconChalkboard,
   IconFileText,
@@ -81,9 +82,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     if (profile?.role === "faculty") {
       return {
         navMain: [
-          { title: "Dashboard", url: `${basePath}/overview`, icon: IconDashboard },
-          { title: "My Courses", url: `${basePath}/courses`, icon: IconFileDescription },
-          { title: "Submissions", url: `${basePath}/submissions`, icon: IconFolder },
+          { title: "Dashboard", url: `${basePath}/dashboard`, icon: IconDashboard },
+          { title: "Review Queue", url: `${basePath}/review`, icon: IconClipboardList },
+          { title: "Mentorship", url: `${basePath}/mentorship`, icon: IconChalkboardTeacher },
         ],
         documents: [
           { name: "Course Reports", url: `${basePath}/reports/courses`, icon: IconReport },
