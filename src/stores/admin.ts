@@ -166,6 +166,30 @@ export type MentorshipStatus =
   | "student_absent"
   | "mentor_absent";
 
+interface RevenueDataPoint {
+  period_start: string; // e.g., "2024-06-30"
+  one_time: number;
+  recurring: number;
+}
+
+interface PlanPerformanceDataPoint {
+  plan_name: string;
+  total_revenue: number;
+  purchase_count: number;
+}
+
+interface PlanPerformanceDataPoint {
+  plan_name: string;
+  total_revenue: number;
+  purchase_count: number;
+}
+
+interface CreditEconomyDataPoint {
+  period_start: string; // e.g., "2024-07-16"
+  purchased: number;
+  consumed: number;
+}
+
 type AdminState = {
   // --- STATE ---
   dashboardStats: any | null;
@@ -184,6 +208,10 @@ type AdminState = {
 
   mentorshipSessions: MentorshipSessionWithDetails[] | null;
   currentMentorshipSession: MentorshipSessionWithDetails | null;
+
+  revenueData: RevenueDataPoint[];
+  planPerformanceData: PlanPerformanceDataPoint[];
+  creditEconomyData: CreditEconomyDataPoint[]; // Add new data array
 
   loading: Record<string, boolean>;
   error: string | null;
@@ -261,6 +289,13 @@ type AdminState = {
 
   fetchUserById: (id: string) => Promise<void>; // <-- ADD THIS
   clearCurrentUser: () => void; // <-- ADD THIS
+
+  fetchRevenueData: (
+    periodType: "daily" | "weekly" | "monthly",
+    daysLimit: number
+  ) => Promise<void>;
+  fetchPlanPerformance: (daysLimit: number) => Promise<void>;
+  fetchCreditEconomyData: (daysLimit: number) => Promise<void>; // Add new action
 };
 
 export const useAdminStore = create<AdminState>((set, get) => ({
@@ -281,6 +316,9 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   currentMentorshipSession: null,
   loading: {},
   error: null,
+  revenueData: [],
+  planPerformanceData: [],
+  creditEconomyData: [], // Initialize new state
 
   setLoading: (key, value) =>
     set((state) => ({ loading: { ...state.loading, [key]: value } })),
@@ -292,8 +330,6 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     get().setLoading("dashboard", true);
     try {
       const supabase = createClient();
-      // This assumes you have an RPC function `get_admin_dashboard_stats` for efficiency.
-      // If not, you'd perform multiple count queries.
       const { data, error } = await supabase.rpc("get_admin_dashboard_stats");
       if (error) throw error;
       set({ dashboardStats: data });
@@ -302,6 +338,71 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       set({ error: err.message });
     } finally {
       get().setLoading("dashboard", false);
+    }
+  },
+
+  fetchRevenueData: async (periodType = "daily", daysLimit = 90) => {
+    get().setLoading("revenueData", true);
+    try {
+      const supabase = createClient();
+      // Call the RPC function with parameters
+      const { data, error } = await supabase.rpc("get_revenue_over_time", {
+        period_type: periodType,
+        days_limit: daysLimit,
+      });
+
+      if (error) throw error;
+
+      // The RPC function returns data with correct types, so we can set it directly
+      set({ revenueData: data || [] });
+    } catch (err: any) {
+      console.error("Failed to fetch revenue data:", err);
+      toast.error("Failed to fetch revenue data.");
+      set({ error: err.message });
+    } finally {
+      get().setLoading("revenueData", false);
+    }
+  },
+
+  fetchPlanPerformance: async (daysLimit = 90) => {
+    get().setLoading("planPerformance", true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("get_plan_performance", {
+        days_limit: daysLimit,
+      });
+
+      console.log(data);
+
+      if (error) throw error;
+
+      set({ planPerformanceData: data || [] });
+    } catch (err: any) {
+      console.error("Failed to fetch plan performance data:", err);
+      toast.error("Failed to fetch plan performance data.");
+      set({ error: err.message });
+    } finally {
+      get().setLoading("planPerformance", false);
+    }
+  },
+
+  fetchCreditEconomyData: async (daysLimit = 90) => {
+    get().setLoading("creditEconomyData", true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("get_credit_economy_balance", {
+        days_limit: daysLimit,
+      });
+
+      if (error) throw error;
+
+      set({ creditEconomyData: data || [] });
+    } catch (err: any) {
+      console.error("Failed to fetch credit economy data:", err);
+      toast.error("Failed to fetch credit economy data.");
+      set({ error: err.message });
+    } finally {
+      get().setLoading("creditEconomyData", false);
     }
   },
 
