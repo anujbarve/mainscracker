@@ -61,9 +61,10 @@ export type UserSubscription = {
 
 export type AdminProfile = {
   id: string;
-  full_name: string | null;
+  full_name: string;
   phone_number: string | null;
   role: "student" | "faculty" | "admin";
+  email : string;
   is_active: boolean;
   is_available: boolean;
   gs_credit_balance: number;
