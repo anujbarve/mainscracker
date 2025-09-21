@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { useStudentStore } from "@/stores/student";
+import { MentorshipSessionWithMentor, MentorshipStatus } from "@/stores/types"; // Assuming types are in this file
 
 // TanStack Table
 import {
@@ -26,7 +28,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -37,7 +44,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   IconDotsVertical,
   IconSearch,
@@ -48,14 +54,18 @@ import {
   IconHourglass,
   IconBan,
   IconUser,
+  IconMessagePlus,
+  IconUserCheck,
+  IconCalendarEvent,
+  IconClockHour4,
+  IconUserOff,
 } from "@tabler/icons-react";
 import Link from "next/link";
 
 // --- Status Badge ---
-// --- Status Badge ---
-const StatusBadge = ({ status }: { status: string }) => {
+const StatusBadge = ({ status }: { status: MentorshipStatus }) => {
   const statusConfig: Record<
-    string,
+    MentorshipStatus,
     { label: string; icon: React.ReactNode; color: string }
   > = {
     requested: {
@@ -65,17 +75,17 @@ const StatusBadge = ({ status }: { status: string }) => {
     },
     assigned: {
       label: "Assigned",
-      icon: <IconUser className="h-3 w-3" />,
-      color: "bg-blue-400/20 text-blue-600 border-blue-400/30",
+      icon: <IconUserCheck className="h-3 w-3" />,
+      color: "bg-purple-400/20 text-purple-600 border-purple-400/30",
     },
     scheduled: {
       label: "Scheduled",
-      icon: <IconCircleCheck className="h-3 w-3" />,
-      color: "bg-indigo-400/20 text-indigo-600 border-indigo-400/30",
+      icon: <IconCalendarEvent className="h-3 w-3" />,
+      color: "bg-blue-400/20 text-blue-600 border-blue-400/30",
     },
     in_progress: {
       label: "In Progress",
-      icon: <IconHourglass className="h-3 w-3 animate-pulse" />,
+      icon: <IconClockHour4 className="h-3 w-3" />,
       color: "bg-orange-400/20 text-orange-600 border-orange-400/30",
     },
     completed: {
@@ -90,7 +100,7 @@ const StatusBadge = ({ status }: { status: string }) => {
     },
     no_show: {
       label: "No Show",
-      icon: <IconBan className="h-3 w-3" />,
+      icon: <IconUserOff className="h-3 w-3" />,
       color: "bg-gray-400/20 text-gray-600 border-gray-400/30",
     },
   };
@@ -109,21 +119,13 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
-
 // --- Column Definitions ---
-const columns: ColumnDef<any>[] = [
+const columns: ColumnDef<MentorshipSessionWithMentor>[] = [
   {
     accessorKey: "requested_at",
     header: "Requested On",
     cell: ({ row }) =>
-      new Date(row.original.requested_at).toLocaleDateString() +
-      " " +
-      new Date(row.original.requested_at).toLocaleTimeString(),
-  },
-  {
-    accessorKey: "duration_minutes",
-    header: "Duration",
-    cell: ({ row }) => `${row.original.duration_minutes} min`,
+      new Date(row.original.requested_at).toLocaleDateString(),
   },
   {
     id: "mentor",
@@ -146,30 +148,38 @@ const columns: ColumnDef<any>[] = [
   },
   {
     id: "actions",
-    cell: ({ row }) => (
-      <div className="flex justify-end">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <IconDotsVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <Link href={`/student/mentorship-list/${row.original.id}`}>
-                <IconEye className="mr-2 h-4 w-4" /> View Details
-              </Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const session = row.original;
+      return (
+        <div className="flex justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-8 w-8 p-0"
+                onClick={(e) => e.stopPropagation()} // Prevent row click
+              >
+                <span className="sr-only">Open menu</span>
+                <IconDotsVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/student/mentorship-list/${session.id}`}>
+                  <IconEye className="mr-2 h-4 w-4" /> View Details
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      );
+    },
   },
 ];
 
 // --- Main Table Component ---
-export function  MentorshipSessionsTable() {
+export function MentorshipSessionsTable() {
+  const router = useRouter();
   const { mentorshipSessions, fetchUserMentorshipSessions, loading } =
     useStudentStore();
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -177,8 +187,10 @@ export function  MentorshipSessionsTable() {
     React.useState<ColumnFiltersState>([]);
 
   React.useEffect(() => {
-    fetchUserMentorshipSessions();
-  }, [fetchUserMentorshipSessions]);
+    if (!mentorshipSessions) {
+      fetchUserMentorshipSessions();
+    }
+  }, [fetchUserMentorshipSessions, mentorshipSessions]);
 
   const table = useReactTable({
     data: mentorshipSessions || [],
@@ -207,7 +219,9 @@ export function  MentorshipSessionsTable() {
               <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Filter by mentor..."
-                value={(table.getColumn("mentor")?.getFilterValue() as string) ?? ""}
+                value={
+                  (table.getColumn("mentor")?.getFilterValue() as string) ?? ""
+                }
                 onChange={(event) =>
                   table.getColumn("mentor")?.setFilterValue(event.target.value)
                 }
@@ -234,7 +248,7 @@ export function  MentorshipSessionsTable() {
                 ))}
               </TableHeader>
               <TableBody>
-                {loading ? (
+                {loading && !mentorshipSessions ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell colSpan={columns.length}>
@@ -247,6 +261,10 @@ export function  MentorshipSessionsTable() {
                     <TableRow
                       key={row.id}
                       data-state={row.getIsSelected() && "selected"}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() =>
+                        router.push(`/student/mentorship-list/${row.original.id}`)
+                      }
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>

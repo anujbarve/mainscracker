@@ -4,8 +4,8 @@
 export type SubscriptionStatus = "active" | "canceled" | "past_due" | "unpaid";
 export type PlanType = "subscription" | "one_time";
 export type OrderStatus = "succeeded" | "pending" | "failed";
-export type AnswerStatus = "pending_assignment" | "in_evaluation" | "completed" | "cancelled";
-export type MentorshipStatus = "requested" | "scheduled" | "completed" | "canceled";
+export type AnswerStatus = "pending_assignment" | "in_evaluation" | "completed" | "cancelled" | "assigned" | "revision_requested";
+export type MentorshipStatus = "requested" | "assigned" |"scheduled" | "in_progress"  | "completed" | "cancelled" | "no_show";
 
 // Base table types
 export type Plan = {

@@ -45,12 +45,7 @@ export type QuestionPaper = {
   subjects: { name: string };
 };
 
-export type NotificationTemplate = {
-  id: string;
-  name: string;
-  title: string;
-  message_body: string;
-};
+
 
 export type UserSubscription = {
   id: string;
@@ -208,7 +203,6 @@ type AdminState = {
   creditLogs: CreditTransaction[] | null;
   plans: any[] | null;
   questionPapers: QuestionPaper[] | null;
-  notificationTemplates: NotificationTemplate[] | null;
   userSubscriptions: UserSubscription[] | null;
   currentAnswer: AdminAnswerView | null;
   currentUser: AdminProfile | null;
@@ -251,11 +245,6 @@ type AdminState = {
     title: string,
     message: string
   ) => Promise<boolean>;
-  fetchNotificationTemplates: (options?: FetchOptions) => Promise<void>;
-  saveNotificationTemplate: (
-    template: Partial<NotificationTemplate>
-  ) => Promise<boolean>;
-  deleteNotificationTemplate: (templateId: string) => Promise<boolean>;
   adjustUserCredits: (
     userId: string,
     creditType: string,
@@ -599,34 +588,6 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
 
-  fetchNotificationTemplates: async (options) => {
-    const cacheKey = "notificationTemplates";
-    const { notificationTemplates, lastFetched } = get();
-    if (
-      !options?.force &&
-      notificationTemplates &&
-      lastFetched[cacheKey] &&
-      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
-    ) {
-      return;
-    }
-    get().setLoading(cacheKey, true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("notification_templates")
-        .select("*");
-      if (error) throw error;
-      set((state) => ({
-        notificationTemplates: data as NotificationTemplate[],
-        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
-      }));
-    } catch (err: any) {
-      toast.error("Failed to fetch templates.");
-    } finally {
-      get().setLoading(cacheKey, false);
-    }
-  },
 
   fetchMentorshipSessions: async (options) => {
     const cacheKey = "mentorshipSessions";
@@ -853,46 +814,6 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       return false;
     } finally {
       get().setLoading(`credits_${userId}`, false);
-    }
-  },
-
-  saveNotificationTemplate: async (template) => {
-    get().setLoading("templates", true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("notification_templates")
-        .upsert(template);
-      if (error) throw error;
-      toast.success("Template saved.");
-      get().fetchNotificationTemplates({ force: true });
-      return true;
-    } catch (err: any) {
-      toast.error("Failed to save template.");
-      return false;
-    } finally {
-      get().setLoading("templates", false);
-    }
-  },
-  
-  deleteNotificationTemplate: async (templateId) => {
-    if (!confirm("Are you sure?")) return false;
-    get().setLoading(`template_${templateId}`, true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("notification_templates")
-        .delete()
-        .eq("id", templateId);
-      if (error) throw error;
-      toast.success("Template deleted successfully.");
-      get().fetchNotificationTemplates({ force: true });
-      return true;
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete template.");
-      return false;
-    } finally {
-      get().setLoading(`template_${templateId}`, false);
     }
   },
 

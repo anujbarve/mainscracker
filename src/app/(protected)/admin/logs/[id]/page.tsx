@@ -115,7 +115,7 @@ function LogDetailPageSkeleton() {
 
 export default function LogDetailPage() {
   const params = useParams();
-  const id = params.id as string;
+  const id = params?.id as string;
 
   const { logs, loading, fetchLogs } = useAdminStore();
 

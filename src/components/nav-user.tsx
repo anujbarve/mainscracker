@@ -38,9 +38,9 @@ import { Sun, Moon } from "lucide-react";
 
 export function useBasePath() {
   const pathname = usePathname();
-  if (pathname.startsWith("/student")) return "/student";
-  if (pathname.startsWith("/faculty")) return "/faculty";
-  if (pathname.startsWith("/admin")) return "/admin";
+  if (pathname?.startsWith("/student")) return "/student";
+  if (pathname?.startsWith("/faculty")) return "/faculty";
+  if (pathname?.startsWith("/admin")) return "/admin";
   return ""; // default
 }
 

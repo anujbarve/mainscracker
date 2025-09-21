@@ -30,7 +30,7 @@ const profileFormSchema = z.object({
 
 export default function UserDetailPage() {
   const params = useParams();
-  const id = params.id as string;
+  const id = params?.id as string;
   const router = useRouter();
   const { 
     currentUser, 

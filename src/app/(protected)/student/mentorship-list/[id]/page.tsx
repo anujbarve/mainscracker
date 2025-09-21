@@ -47,7 +47,7 @@ const DetailItem = ({ icon, label, children }: { icon: React.ElementType; label:
 // --- Main Page ---
 export default function MentorshipSessionDetailPage() {
   const params = useParams();
-  const id = params.id as string;
+  const id = params?.id as string;
 
   const { mentorshipSessions, fetchUserMentorshipSessions } = useStudentStore();
 

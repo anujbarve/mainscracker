@@ -102,7 +102,7 @@ const InfoItem = ({ icon: Icon, label, value }: { icon: React.ElementType; label
 
 export default function AnswerDetailPage() {
   const params = useParams();
-  const id = params.id as string;
+  const id = params?.id as string;
 
   const {
     currentAnswer,
