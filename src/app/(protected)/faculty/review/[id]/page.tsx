@@ -13,7 +13,7 @@ import { AnswerEvaluationForm } from "@/components/faculty/answer-evaluation-for
 export default function FacultyAnswerEvaluationPage() {
   const params = useParams();
   const router = useRouter();
-  const answerId = params.id as string;
+  const answerId = params?.id as string;
   
   const [answerData, setAnswerData] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);

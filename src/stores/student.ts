@@ -45,11 +45,7 @@ type Plan = {
 
 // ✅ 1. Define and export the specific AnswerStatus type your component needs.
 // This should match the ENUM in your database.
-export type AnswerStatus =
-  | "pending_assignment"
-  | "in_evaluation"
-  | "completed"
-  | "cancelled";
+export type AnswerStatus = "pending_assignment" | "in_evaluation" | "completed" | "cancelled" | "assigned" | "revision_requested";
 
 export type AnswerWithDetails = {
   id: string;
@@ -153,6 +149,15 @@ type StudentState = {
   markNotificationAsRead: (notificationId: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
   fetchMentors: (options?: FetchOptions) => Promise<void>;
+  cancelMentorshipSession: (
+    sessionId: string,
+    reason: string
+  ) => Promise<boolean>;
+  submitMentorshipFeedback: (
+    sessionId: string,
+    rating: number,
+    feedback: string
+  ) => Promise<boolean>;
 };
 
 const CACHE_DURATION_MS = 2 * 60 * 1000;
@@ -677,4 +682,83 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       });
     }
   },
+  cancelMentorshipSession: async (sessionId, reason) => {
+    set({ loading: true, error: null });
+    const { user, refreshProfile } = useAuthStore.getState();
+    if (!user) {
+      toast.error("You must be logged in to cancel a session.");
+      set({ loading: false });
+      return false;
+    }
+
+    try {
+      const supabase = await createClient();
+      // It's best to use an RPC function for this to atomically handle
+      // state change, credit refund, and notifications.
+      const { error } = await supabase.rpc("cancel_mentorship_by_student", {
+        session_id_in: sessionId,
+        cancellation_reason_in: reason,
+      });
+
+      if (error) throw error;
+
+      toast.success("Mentorship session has been cancelled.");
+      // Force refresh data
+      get().fetchUserMentorshipSessions({ force: true });
+      refreshProfile({ force: true }); // To update credit balance
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to cancel the session.");
+      set({ error: err.message, loading: false });
+      return false;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  // ✅ NEW: Implementation for submitting mentorship feedback
+  submitMentorshipFeedback: async (sessionId, rating, feedback) => {
+    set({ loading: true, error: null });
+    const { user } = useAuthStore.getState();
+    if (!user) {
+      toast.error("You must be logged in to submit feedback.");
+      set({ loading: false });
+      return false;
+    }
+
+    // Basic client-side validation
+    if (rating < 1 || rating > 5) {
+      toast.error("Rating must be between 1 and 5.");
+      set({ loading: false });
+      return false;
+    }
+
+    try {
+      const supabase = await createClient();
+      const { error } = await supabase
+        .from("mentorship_sessions")
+        .update({
+          student_rating: rating,
+          student_feedback: feedback,
+        })
+        .eq("id", sessionId)
+        .eq("student_id", user.id) // Ensure user owns this session
+        .eq("status", "completed"); // Only allow feedback on completed sessions
+
+      if (error) throw error;
+
+      toast.success("Thank you for your feedback!");
+      // Refresh the sessions list to show the submitted feedback
+      get().fetchUserMentorshipSessions({ force: true });
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit feedback.");
+      set({ error: err.message, loading: false });
+      return false;
+    } finally {
+      set({ loading: false });
+    }
+  },
 }));
+export type { MentorshipSessionWithMentor };
+

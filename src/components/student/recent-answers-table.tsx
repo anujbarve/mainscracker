@@ -23,10 +23,15 @@ type RecentAnswersTableProps = {
   answers: AnswerWithDetails[] | null;
 };
 
-// Helper to map status to badge color
-const statusVariantMap: Record<AnswerStatus, "default" | "secondary" | "outline" | "destructive"> = {
+// ✅ Helper updated to include all status types
+const statusVariantMap: Record<
+  AnswerStatus,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
   pending_assignment: "secondary",
+  assigned: "default",
   in_evaluation: "default",
+  revision_requested: "secondary",
   completed: "outline",
   cancelled: "destructive",
 };
@@ -60,7 +65,7 @@ export function RecentAnswersTable({ answers }: RecentAnswersTableProps) {
                     {answer.subjects?.name ?? "N/A"}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={statusVariantMap[answer.status]}>
+                    <Badge variant={statusVariantMap[answer.status] ?? "secondary"} className="capitalize">
                       {answer.status.replace(/_/g, " ")}
                     </Badge>
                   </TableCell>
@@ -69,7 +74,7 @@ export function RecentAnswersTable({ answers }: RecentAnswersTableProps) {
                   </TableCell>
                   <TableCell className="text-right">
                     <Button asChild variant="outline" size="sm">
-                       <Link href={`/student/answers-list/${answer.id}`}>View</Link>
+                      <Link href={`/student/answers-list/${answer.id}`}>View</Link>
                     </Button>
                   </TableCell>
                 </TableRow>
