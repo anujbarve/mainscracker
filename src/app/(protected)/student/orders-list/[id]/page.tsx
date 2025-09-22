@@ -57,7 +57,7 @@ const DetailItem = ({ icon, label, children, isMono = false }: { icon: React.Ele
 // --- Main Page Component ---
 export default function OrderDetailPage() {
   const params = useParams();
-  const id = params.id as string;
+  const id = params?.id as string;
 
   const { orders, fetchUserOrders } = useStudentStore();
 

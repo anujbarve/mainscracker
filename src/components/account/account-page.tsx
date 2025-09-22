@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useAuthStore } from "@/stores/auth"; // Make sure path is correct
+import { useAuthStore } from "@/stores/auth";
 
 // Shadcn UI & Icons
 import { Button } from "@/components/ui/button";
@@ -91,7 +91,6 @@ export default function AccountPage() {
   }
 
   return (
-    // ✅ CHANGE: Removed `bg-muted/40` for a transparent background
     <main className="w-full min-h-screen p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl grid grid-cols-1 gap-8 lg:grid-cols-3">
         {/* Left Column: Profile Form and Settings */}
@@ -152,33 +151,35 @@ export default function AccountPage() {
             </CardContent>
           </Card>
 
-          {/* Availability Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Availability Status</CardTitle>
-              <CardDescription>
-                Set whether you are available for new mentorship or tasks.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center space-x-4 rounded-md border p-4">
-                <div className="flex-1 space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    Available for opportunities
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Your profile will be shown to students seeking mentors.
-                  </p>
+          {/* ✅ Availability Card is now conditionally rendered */}
+          {profile.role === "faculty" && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Availability Status</CardTitle>
+                <CardDescription>
+                  Set whether you are available for new mentorship or tasks.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center space-x-4 rounded-md border p-4">
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      Available for opportunities
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Your profile will be shown to students seeking mentors.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={profile.is_available}
+                    onCheckedChange={handleAvailabilityChange}
+                    disabled={loading}
+                    aria-readonly
+                  />
                 </div>
-                <Switch
-                  checked={profile.is_available}
-                  onCheckedChange={handleAvailabilityChange}
-                  disabled={loading}
-                  aria-readonly
-                />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Right Column: Account Status and Credits */}
@@ -233,7 +234,7 @@ export default function AccountPage() {
   );
 }
 
-// --- Helper & Skeleton Components ---
+// --- Helper & Skeleton Components (Unchanged) ---
 
 const StatCard = ({
   icon: Icon,
@@ -257,7 +258,6 @@ const StatCard = ({
 
 function AccountPageSkeleton() {
   return (
-    // ✅ CHANGE: Also removed `bg-muted/40` from the skeleton
     <div className="w-full min-h-screen p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">

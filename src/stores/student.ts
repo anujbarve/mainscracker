@@ -12,7 +12,7 @@ import {
   MentorshipSessionWithMentor,
 } from "./types"; // Import types from the file above
 
-// Import HelpArticle type
+// Import HelpArticle and SupportTicket types
 export type HelpArticle = {
   id: string;
   topic: string;
@@ -74,20 +74,14 @@ type Plan = {
   mentorship_credits_granted: number;
 };
 
-// ✅ 1. Define and export the specific AnswerStatus type your component needs.
-// This should match the ENUM in your database.
-export type AnswerStatus =
-  | "pending_assignment"
-  | "in_evaluation"
-  | "completed"
-  | "cancelled";
+export type AnswerStatus = "pending_assignment" | "in_evaluation" | "completed" | "cancelled" | "assigned" | "revision_requested";
 
 export type AnswerWithDetails = {
   id: string;
   student_id: string;
   subject_id: string;
   assigned_faculty_id: string | null;
-  status: AnswerStatus; // ✅ 2. Use the new AnswerStatus type for better type safety
+  status: AnswerStatus;
   question_text: string;
   answer_file_url: string;
   submitted_at: string;
@@ -178,7 +172,7 @@ type StudentState = {
   fetchSubjects: (options?: FetchOptions) => Promise<void>;
   purchasePlan: (planId: string) => Promise<void>;
   submitAnswerSheet: (data: AnswerSubmission) => Promise<string | null>;
-  requestMentorshipSession: (data: MentorshipRequest) => Promise< string | null>;
+  requestMentorshipSession: (data: MentorshipRequest) => Promise<string | null>;
   cancelSubscription: (subscriptionId: string) => Promise<void>;
   fetchUserNotifications: (options?: FetchOptions) => Promise<void>;
   markNotificationAsRead: (notificationId: string) => Promise<void>;
@@ -189,6 +183,16 @@ type StudentState = {
   searchHelpArticles: (query: string) => Promise<HelpArticle[]>;
   createSupportTicket: (subject: string, description: string, priority: string, type: string) => Promise<string | null>;
   fetchSupportTickets: (options?: FetchOptions) => Promise<SupportTicket[]>;
+  // Mentorship Feedback & Cancellation actions
+  cancelMentorshipSession: (
+    sessionId: string,
+    reason: string
+  ) => Promise<boolean>;
+  submitMentorshipFeedback: (
+    sessionId: string,
+    rating: number,
+    feedback: string
+  ) => Promise<boolean>;
 };
 
 const CACHE_DURATION_MS = 2 * 60 * 1000;
@@ -791,4 +795,77 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       return [];
     }
   },
+
+  cancelMentorshipSession: async (sessionId, reason) => {
+    set({ loading: true, error: null });
+    const { user, refreshProfile } = useAuthStore.getState();
+    if (!user) {
+      toast.error("You must be logged in to cancel a session.");
+      set({ loading: false });
+      return false;
+    }
+
+    try {
+      const supabase = await createClient();
+      const { error } = await supabase.rpc("cancel_mentorship_by_student", {
+        session_id_in: sessionId,
+        cancellation_reason_in: reason,
+      });
+
+      if (error) throw error;
+
+      toast.success("Mentorship session has been cancelled.");
+      get().fetchUserMentorshipSessions({ force: true });
+      refreshProfile({ force: true });
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to cancel the session.");
+      set({ error: err.message, loading: false });
+      return false;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  submitMentorshipFeedback: async (sessionId, rating, feedback) => {
+    set({ loading: true, error: null });
+    const { user } = useAuthStore.getState();
+    if (!user) {
+      toast.error("You must be logged in to submit feedback.");
+      set({ loading: false });
+      return false;
+    }
+
+    if (rating < 1 || rating > 5) {
+      toast.error("Rating must be between 1 and 5.");
+      set({ loading: false });
+      return false;
+    }
+
+    try {
+      const supabase = await createClient();
+      const { error } = await supabase
+        .from("mentorship_sessions")
+        .update({
+          student_rating: rating,
+          student_feedback: feedback,
+        })
+        .eq("id", sessionId)
+        .eq("student_id", user.id)
+        .eq("status", "completed");
+
+      if (error) throw error;
+
+      toast.success("Thank you for your feedback!");
+      get().fetchUserMentorshipSessions({ force: true });
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit feedback.");
+      set({ error: err.message, loading: false });
+      return false;
+    } finally {
+      set({ loading: false });
+    }
+  },
 }));
+export type { MentorshipSessionWithMentor };
