@@ -27,6 +27,7 @@ import {
 import { NavMain, type NavItem } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
+import { NavDocuments } from "@/components/nav-documents"
 import {
   Sidebar,
   SidebarContent,
@@ -92,7 +93,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           ],
         },
       ]
-      return { navMain, documents: [], navSecondary: [] }
+      const navSecondary: NavItem[] = [
+        { title: "Help", url: `${basePath}/help`, icon: IconHelp },
+      ]
+    return { navMain, documents: [], navSecondary }
     }
 
     if (profile?.role === "faculty") {
@@ -160,7 +164,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ],
       },
     ]
-    return { navMain, documents: [], navSecondary: [] }
+    const navSecondary: NavItem[] = [
+        { title: "Help", url: `${basePath}/help`, icon: IconHelp },
+      ]
+    return { navMain, documents: [], navSecondary }
   }, [profile?.role, basePath])
 
   return (
@@ -182,6 +189,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
+        <NavDocuments items={data.documents}></NavDocuments>
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
