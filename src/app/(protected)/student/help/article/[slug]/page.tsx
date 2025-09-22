@@ -1,15 +1,15 @@
+"use client"
+
 import ArticleDetail from "@/components/help/article-detail";
+import { useParams } from "next/navigation";
 
-type PageProps = {
-  params: {
-    slug: string;
-  };
-};
+export default function Page() {
 
-export default function Page({ params }: PageProps) {
+    const params = useParams();
+    const slug = params?.slug as string;
   return (
     <>
-      <ArticleDetail slug={params.slug} />
+      <ArticleDetail slug={slug} />
     </>
   );
 }

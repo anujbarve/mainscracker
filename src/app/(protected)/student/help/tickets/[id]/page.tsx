@@ -1,15 +1,14 @@
+"use client"
 import TicketDetail from "@/components/help/ticket-detail";
+import { useParams } from "next/navigation";
 
-type PageProps = {
-  params: {
-    id: string;
-  };
-};
 
-export default function Page({ params }: PageProps) {
+export default function Page() {
+      const params = useParams();
+      const id = params?.id as string;
   return (
     <>
-      <TicketDetail ticketId={params.id} />
+      <TicketDetail ticketId={id} />
     </>
   );
 }
