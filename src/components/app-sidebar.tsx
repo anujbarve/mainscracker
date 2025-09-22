@@ -1,35 +1,30 @@
 "use client"
 
 import * as React from "react"
+import { usePathname } from "next/navigation"
 import {
-  IconChartBar,
-  IconDashboard,
-  IconDatabase,
-  IconFileDescription,
-  IconFileWord,
-  IconFolder,
-  IconHelp,
-  IconInnerShadowTop,
-  IconReport,
-  IconSearch,
-  IconSettings,
-  IconUsers,
-  IconCirclePlus,
-  IconPaywall,
-  IconArrowsSort,
-  IconChalkboardTeacher,
-  IconCalendarTime,
-  IconClipboardList,
   IconLayoutDashboard,
+  IconUsers,
   IconFileText,
   IconNotebook,
   IconReportAnalytics,
   IconListDetails,
-  IconCreditCard
+  IconCreditCard,
+  IconSettings,
+  IconClipboardList,
+  IconHelp,
+  IconPaywall,
+  IconInnerShadowTop,
+  IconDashboard,
+  IconChalkboardTeacher,
+  IconReport,
+  IconCirclePlus,
+  IconFileDescription,
+  IconArrowsSort,
+  IconCalendarTime,
 } from "@tabler/icons-react"
 
-import { NavDocuments } from "@/components/nav-documents"
-import { NavMain } from "@/components/nav-main"
+import { NavMain, type NavItem } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import {
@@ -41,7 +36,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { usePathname } from "next/navigation"
 import { useAuthStore } from "@/stores/auth"
 
 export function useBasePath() {
@@ -61,54 +55,112 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   // role-based navigation
   const data = React.useMemo(() => {
     if (profile?.role === "admin") {
-      return {
-        navMain: [
-          { title: "Overview", url: `${basePath}/dashboard`, icon: IconLayoutDashboard },
-          { title: "Manage Users", url: `${basePath}/users`, icon: IconUsers },
-          { title: "Manage Answer Sheets", url: `${basePath}/answersheets`, icon: IconFileText },
-          { title: "Manage Mentorship Sessions", url: `${basePath}/mentorships`, icon: IconNotebook },
-          { title: "Reports", url: `${basePath}/reports`, icon: IconReportAnalytics },
-          { title: "Logs", url: `${basePath}/logs`, icon: IconListDetails },
-          { title: "Billing", url: `${basePath}/billing`, icon: IconCreditCard },
-          { title: "System Settings", url: `${basePath}/settings`, icon: IconSettings },
-        ],
-        documents: [],
-        navSecondary: [],
-      }
+      const navMain: NavItem[] = [
+        {
+          title: "Overview",
+          url: `${basePath}/dashboard`,
+          icon: IconLayoutDashboard,
+        },
+        {
+          title: "Management",
+          url: "#", // Parent items don't need a real URL
+          icon: IconClipboardList,
+          items: [
+            { title: "Users", url: `${basePath}/users` },
+            { title: "Answer Sheets", url: `${basePath}/answersheets` },
+            { title: "Mentorships", url: `${basePath}/mentorships` },
+            { title: "Support Tickets", url: `${basePath}/support` },
+            { title : "Subjects", url : `${basePath}/subjects`}
+          ],
+        },
+        {
+          title: "Analytics",
+          url: "#",
+          icon: IconReportAnalytics,
+          items: [
+            { title: "Reports", url: `${basePath}/reports` },
+            { title: "Audit Logs", url: `${basePath}/logs` },
+          ],
+        },
+        {
+          title: "Configuration",
+          url: "#",
+          icon: IconSettings,
+          items: [
+            { title: "Billing", url: `${basePath}/billing` },
+            { title: "Plans", url: `${basePath}/plans` },
+          ],
+        },
+      ]
+      return { navMain, documents: [], navSecondary: [] }
     }
 
     if (profile?.role === "faculty") {
-      return {
-        navMain: [
-          { title: "Dashboard", url: `${basePath}/dashboard`, icon: IconDashboard },
-          { title: "Review Queue", url: `${basePath}/review`, icon: IconClipboardList },
-          { title: "Mentorship", url: `${basePath}/mentorship`, icon: IconChalkboardTeacher },
-        ],
-        documents: [
-          { name: "Course Reports", url: `${basePath}/reports/courses`, icon: IconReport },
-        ],
-        navSecondary: [
-          { title: "Help", url: `${basePath}/help`, icon: IconHelp },
-        ],
-      }
+      const navMain: NavItem[] = [
+        {
+          title: "Dashboard",
+          url: `${basePath}/dashboard`,
+          icon: IconDashboard,
+        },
+        {
+          title: "Review Queue",
+          url: `${basePath}/review`,
+          icon: IconClipboardList,
+        },
+        {
+          title: "Mentorship",
+          url: `${basePath}/mentorship`,
+          icon: IconChalkboardTeacher,
+        },
+      ]
+      const navSecondary: NavItem[] = [
+        { title: "Help", url: `${basePath}/help`, icon: IconHelp },
+      ]
+      return { navMain, documents: [
+        { name: "Course Reports", url: `${basePath}/reports/courses`, icon: IconReport },
+        ], navSecondary }
     }
 
     // default: student
-    return {
-      navMain: [
-        { title: "Dashboard", url: `${basePath}/dashboard`, icon: IconDashboard },
-        { title: "Submit Answer Sheet", url: `${basePath}/answersheet`, icon: IconCirclePlus },
-        { title: "My Submissions", url: `${basePath}/answers-list`, icon: IconFileDescription },
-        { title: "My Orders", url: `${basePath}/orders-list`, icon: IconArrowsSort },
-        { title: "Schedule Mentorship", url: `${basePath}/request-mentorship`, icon: IconCalendarTime },
-        { title: "Mentorship Sessions", url: `${basePath}/mentorship-list`, icon: IconChalkboardTeacher },
-        { title: "My Subscriptions", url: `${basePath}/subscriptions`, icon: IconPaywall },
-      ],
-      documents: [],
-      navSecondary: [
-        { title: "Help", url: `${basePath}/help`, icon: IconHelp },
-      ],
-    }
+    const navMain: NavItem[] = [
+      {
+        title: "Dashboard",
+        url: `${basePath}/dashboard`,
+        icon: IconDashboard,
+      },
+      {
+        title: "Submit Answer Sheet",
+        url: `${basePath}/answersheet`,
+        icon: IconCirclePlus,
+      },
+      {
+        title: "My Submissions",
+        url: `${basePath}/answers-list`,
+        icon: IconFileDescription,
+      },
+      {
+        title: "Mentorship",
+        url: "#",
+        icon: IconChalkboardTeacher,
+        items: [
+          {
+            title: "Schedule Session",
+            url: `${basePath}/request-mentorship`,
+          },
+          { title: "My Sessions", url: `${basePath}/mentorship-list` },
+        ],
+      },
+      {
+        title: "Billing",
+        url: "#",
+        icon: IconCreditCard,
+        items: [
+          { title: "My Orders", url: `${basePath}/orders-list` },
+          { title: "My Subscriptions", url: `${basePath}/subscriptions` },
+        ],
+      },
+    ]
+    return { navMain, documents: [], navSecondary: [] }
   }, [profile?.role, basePath])
 
   return (
@@ -130,7 +182,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        {/* <NavDocuments items={data.documents} /> */}
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

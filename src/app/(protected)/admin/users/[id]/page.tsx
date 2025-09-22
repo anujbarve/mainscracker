@@ -34,18 +34,17 @@ export default function UserDetailPage() {
   const router = useRouter();
   const { 
     currentUser, 
-    facultyWorkload, // Get workload data
+    facultyWorkload,
     loading, 
     fetchUserById, 
     clearCurrentUser, 
     updateProfile,
     deleteUser,
-    fetchFacultyWorkloadById, // Get the new function
+    fetchFacultyWorkloadById,
   } = useAdminStore();
 
   const form = useForm<z.infer<typeof profileFormSchema>>({
     resolver: zodResolver(profileFormSchema),
-    // ✅ FIX: Provide default values to prevent uncontrolled input warning
     defaultValues: {
       full_name: "",
       phone_number: "",
@@ -55,13 +54,20 @@ export default function UserDetailPage() {
     },
   });
 
+  // ✅ FIX: The useCallback hook is moved here, before any conditional returns.
+  const handleDataUpdate = React.useCallback(() => {
+    if (id) {
+      fetchUserById(id);
+    }
+  }, [id, fetchUserById]);
+
+  // --- All effects follow the hooks ---
   React.useEffect(() => {
-    if (id) fetchUserById(id);
+    handleDataUpdate(); // Initial fetch
     return () => { clearCurrentUser(); };
-  }, [id, fetchUserById, clearCurrentUser]);
+  }, [id, handleDataUpdate, clearCurrentUser]);
 
   React.useEffect(() => {
-    // This now safely updates the already-controlled form fields
     if (currentUser) {
       form.reset({
         full_name: currentUser.full_name || "",
@@ -71,18 +77,19 @@ export default function UserDetailPage() {
         is_available: currentUser.is_available,
       });
 
-      // ✅ If the user is a faculty member, fetch their specific workload
       if (currentUser.role === 'faculty') {
         fetchFacultyWorkloadById(id);
       }
     }
-  }, [currentUser, form,fetchFacultyWorkloadById, id]);
+  }, [currentUser, form, fetchFacultyWorkloadById, id]);
 
+
+  // --- All event handlers follow the effects ---
   async function onSubmit(data: z.infer<typeof profileFormSchema>) {
     const success = await updateProfile(id, data);
     if (success) {
       toast.success("Profile updated!");
-      fetchUserById(id); // Re-fetch to get latest data
+      handleDataUpdate(); // Re-fetch to get latest data
     }
   }
   
@@ -94,8 +101,8 @@ export default function UserDetailPage() {
     }
   }
 
+  // --- The conditional return is last, before the main JSX ---
   if (loading.currentUser || !currentUser) {
-    // Show a comprehensive skeleton layout
     return <UserDetailSkeleton />;
   }
 
@@ -145,6 +152,7 @@ export default function UserDetailPage() {
         <div className="lg:col-span-1 space-y-6">
             {/* ✅ CONDITIONAL CARD: Show only for Students */}
             {currentUser.role === 'student' && (
+              <>
                 <Card>
                     <CardHeader className="flex flex-row items-center gap-2"><CreditCard className="w-5 h-5 text-muted-foreground"/><CardTitle>Credit Balance</CardTitle></CardHeader>
                     <CardContent className="space-y-2 text-sm">
@@ -153,6 +161,8 @@ export default function UserDetailPage() {
                        <div className="flex justify-between"><span>Mentorship Credits:</span><span className="font-bold">{currentUser.mentorship_credit_balance}</span></div>
                     </CardContent>
                 </Card>
+                <AdjustCreditsCard userId={id} onUpdate={handleDataUpdate} />
+                </>
             )}
 
             {/* ✅ CONDITIONAL CARD: Show only for Faculty */}
@@ -230,4 +240,103 @@ function UserDetailSkeleton() {
             </div>
         </div>
     )
+}
+
+// =============================================================================
+// NEW COMPONENT: Adjust Credits Card
+// =============================================================================
+
+const creditAdjustmentSchema = z.object({
+  creditType: z.enum(["gs", "specialized", "mentorship"]),
+  // ✅ FIX: The schema is now simpler. It expects a number directly.
+  amount: z.number()
+    .int("Amount must be a whole number.")
+    .refine((n) => n !== 0, { message: "Amount cannot be zero." }),
+  reason: z.string().min(5, "A reason of at least 5 characters is required."),
+});
+function AdjustCreditsCard({ userId, onUpdate }: { userId: string, onUpdate: () => void }) {
+  const { adjustUserCredits } = useAdminStore();
+
+  const form = useForm<z.infer<typeof creditAdjustmentSchema>>({
+    resolver: zodResolver(creditAdjustmentSchema),
+    defaultValues: {
+      amount: 1,
+      reason: "",
+    },
+  });
+
+  async function onSubmit(data: z.infer<typeof creditAdjustmentSchema>) {
+    const success = await adjustUserCredits(userId, data.creditType, data.amount, data.reason);
+    if (success) {
+      toast.success("Credits adjusted successfully!");
+      form.reset(); // Clear the form
+      onUpdate(); // Trigger a data refresh on the parent page
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Adjust Credits</CardTitle>
+        <CardDescription>Manually add or remove credits from this user's balance.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="creditType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Credit Type</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a type..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="gs">GS Credits</SelectItem>
+                      <SelectItem value="specialized">Specialized Credits</SelectItem>
+                      <SelectItem value="mentorship">Mentorship Credits</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Amount</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="e.g., 10 or -5" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="reason"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Reason</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Bonus for referral" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                Adjust Balance
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
 }
