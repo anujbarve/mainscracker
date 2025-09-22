@@ -7,10 +7,6 @@ import { useAdminStore } from "@/stores/admin";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 
-// PDF Generation
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-
 // UI Components
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
