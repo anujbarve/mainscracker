@@ -114,10 +114,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         },
       ]
       const navSecondary: NavItem[] = [
-        { title: "Settings", url: `${basePath}/settings`, icon: IconSettings },
-        { title: "Help", url: "#", icon: IconHelp },
+        { title: "Help", url: `${basePath}/help`, icon: IconHelp },
       ]
-      return { navMain, documents: [], navSecondary }
+      return { navMain, documents: [
+        { name: "Course Reports", url: `${basePath}/reports/courses`, icon: IconReport },
+        ], navSecondary }
     }
 
     // default: student
