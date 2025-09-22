@@ -12,7 +12,7 @@ import {
   SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { format } from 'date-fns';
+import { format, parseISO, subDays } from 'date-fns';
 import { useAdminStore } from "@/stores/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlusCircle, Search } from "lucide-react";
+import { Area, AreaChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 // Simplified type for our view
 type UserView = {
@@ -75,14 +76,80 @@ const columns: ColumnDef<UserView>[] = [
   },
 ];
 
+const UserSignupChart = ({ data }: { data: any[] }) => {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex h-[300px] w-full items-center justify-center">
+        <p className="text-muted-foreground">No user sign-up data available to display chart.</p>
+      </div>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <AreaChart data={data}>
+        <XAxis dataKey="date" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+        <Tooltip
+          contentStyle={{
+            background: "var(--card)",
+            borderColor: "var(--border)",
+            borderRadius: "var(--radius)"
+          }}
+        />
+        <Legend />
+        <Area type="monotone" dataKey="student_count" name="Students" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} />
+        <Area type="monotone" dataKey="faculty_count" name="Faculty" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.3} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+};
+
 
 export default function ManageUsersPage() {
-  const { students, faculty, fetchStudents, fetchFaculty } = useAdminStore();
+  const { students, faculty, fetchStudents, fetchFaculty, loading } = useAdminStore();
 
   React.useEffect(() => {
     fetchStudents();
     fetchFaculty();
   }, [fetchStudents, fetchFaculty]);
+
+  // ✅ NEW: Calculate chart data client-side from existing students and faculty lists
+  const chartData = React.useMemo(() => {
+    if (!students || !faculty) return [];
+
+    const allUsers = [...students, ...faculty];
+    const signupDataByDate: Record<string, { student_count: number; faculty_count: number }> = {};
+
+    // Aggregate signups from the fetched user data
+    allUsers.forEach(user => {
+      const date = format(parseISO(user.created_at), 'yyyy-MM-dd');
+      if (!signupDataByDate[date]) {
+        signupDataByDate[date] = { student_count: 0, faculty_count: 0 };
+      }
+      if (user.role === 'student') {
+        signupDataByDate[date].student_count++;
+      } else if (user.role === 'faculty') {
+        signupDataByDate[date].faculty_count++;
+      }
+    });
+
+    // Generate data for the last 30 days, filling in gaps with zeros
+    const trendData = [];
+    for (let i = 29; i >= 0; i--) {
+      const day = subDays(new Date(), i);
+      const dateString = format(day, 'yyyy-MM-dd');
+      const dataForDay = signupDataByDate[dateString] || { student_count: 0, faculty_count: 0 };
+      
+      trendData.push({
+        date: format(day, "MMM d"),
+        student_count: dataForDay.student_count,
+        faculty_count: dataForDay.faculty_count,
+      });
+    }
+
+    return trendData;
+  }, [students, faculty]);
 
   return (
     <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
@@ -97,6 +164,17 @@ export default function ManageUsersPage() {
           </Link>
         </Button>
       </div>
+
+      {/* ✅ ADDED: The new chart card, which gets its data from the calculation above */}
+      <Card>
+        <CardHeader>
+          <CardTitle>User Signup Trends</CardTitle>
+          <CardDescription>New students and faculty who joined in the last 30 days.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading.students || loading.faculty ? <Skeleton className="h-[300px] w-full" /> : <UserSignupChart data={chartData} />}
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="students">
         <TabsList>

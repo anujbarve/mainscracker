@@ -494,3 +494,78 @@ where
 create trigger handle_updated_at BEFORE
 update on subscriptions for EACH row
 execute FUNCTION handle_updated_at ();
+
+create table public.audit_log (
+  id bigserial not null,
+  timestamp timestamp with time zone not null default now(),
+  actor_id uuid null,
+  action public.audit_action_type not null,
+  target_table text not null,
+  target_record_id uuid null,
+  old_record jsonb null,
+  new_record jsonb null,
+  notes text null,
+  constraint audit_log_pkey primary key (id),
+  constraint audit_log_actor_id_fkey foreign KEY (actor_id) references profiles (id)
+) TABLESPACE pg_default;
+
+create index IF not exists idx_audit_log_target on public.audit_log using btree (target_table, target_record_id) TABLESPACE pg_default;
+
+create index IF not exists idx_audit_log_actor on public.audit_log using btree (actor_id) TABLESPACE pg_default;
+
+create index IF not exists idx_audit_log_timestamp on public.audit_log using btree ("timestamp" desc) TABLESPACE pg_default;
+
+create table public.support_ticket_attachments (
+  id uuid not null default gen_random_uuid (),
+  ticket_id uuid not null,
+  file_url text not null,
+  file_name text not null,
+  uploaded_at timestamp with time zone not null default now(),
+  constraint support_ticket_attachments_pkey primary key (id),
+  constraint support_ticket_attachments_ticket_id_fkey foreign KEY (ticket_id) references support_tickets (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_support_ticket_attachments_ticket on public.support_ticket_attachments using btree (ticket_id) TABLESPACE pg_default;
+
+create table public.support_ticket_messages (
+  id uuid not null default gen_random_uuid (),
+  ticket_id uuid not null,
+  sender_id uuid not null,
+  message text not null,
+  sent_at timestamp with time zone not null default now(),
+  constraint support_ticket_messages_pkey primary key (id),
+  constraint support_ticket_messages_sender_id_fkey foreign KEY (sender_id) references profiles (id) on delete CASCADE,
+  constraint support_ticket_messages_ticket_id_fkey foreign KEY (ticket_id) references support_tickets (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_support_ticket_messages_ticket on public.support_ticket_messages using btree (ticket_id, sent_at) TABLESPACE pg_default;
+
+create trigger update_ticket_last_reply_trigger
+after INSERT on support_ticket_messages for EACH row
+execute FUNCTION update_ticket_last_reply ();
+
+create table public.support_tickets (
+  id uuid not null default gen_random_uuid (),
+  user_id uuid not null,
+  subject text not null,
+  description text not null,
+  priority public.ticket_priority not null default 'medium'::ticket_priority,
+  type public.ticket_type not null default 'question'::ticket_type,
+  status public.support_ticket_status not null default 'open'::support_ticket_status,
+  assigned_to uuid null,
+  resolution_notes text null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  last_reply_at timestamp with time zone null default now(),
+  constraint support_tickets_pkey primary key (id),
+  constraint support_tickets_user_id_fkey foreign KEY (user_id) references profiles (id) on delete CASCADE,
+  constraint support_tickets_assigned_to_fkey foreign KEY (assigned_to) references profiles (id) on delete set null
+) TABLESPACE pg_default;
+
+create index IF not exists idx_support_tickets_user_status on public.support_tickets using btree (user_id, status) TABLESPACE pg_default;
+
+create index IF not exists idx_support_tickets_assigned on public.support_tickets using btree (assigned_to) TABLESPACE pg_default;
+
+create trigger handle_updated_at BEFORE
+update on support_tickets for EACH row
+execute FUNCTION handle_updated_at ();

@@ -12,6 +12,37 @@ import {
   MentorshipSessionWithMentor,
 } from "./types"; // Import types from the file above
 
+// Import HelpArticle and SupportTicket types
+export type HelpArticle = {
+  id: string;
+  topic: string;
+  slug: string;
+  content: string;
+  keywords: string[];
+  category: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+  faq: boolean;
+};
+
+export type SupportTicket = {
+  id: string;
+  user_id: string;
+  subject: string;
+  description: string;
+  priority: "low" | "medium" | "high" | "urgent";
+  type: "bug" | "question" | "feature_request" | "billing" | "technical" | "other";
+  status: "open" | "in_progress" | "resolved" | "closed";
+  assigned_to: string | null;
+  resolution_notes: string | null;
+  created_at: string;
+  updated_at: string;
+  last_reply_at: string;
+};
+
 // Define the shape of data for creating new records
 type AnswerSubmission = {
   subject_id_in: string;
@@ -43,8 +74,6 @@ type Plan = {
   mentorship_credits_granted: number;
 };
 
-// ✅ 1. Define and export the specific AnswerStatus type your component needs.
-// This should match the ENUM in your database.
 export type AnswerStatus = "pending_assignment" | "in_evaluation" | "completed" | "cancelled" | "assigned" | "revision_requested";
 
 export type AnswerWithDetails = {
@@ -52,7 +81,7 @@ export type AnswerWithDetails = {
   student_id: string;
   subject_id: string;
   assigned_faculty_id: string | null;
-  status: AnswerStatus; // ✅ 2. Use the new AnswerStatus type for better type safety
+  status: AnswerStatus;
   question_text: string;
   answer_file_url: string;
   submitted_at: string;
@@ -143,12 +172,18 @@ type StudentState = {
   fetchSubjects: (options?: FetchOptions) => Promise<void>;
   purchasePlan: (planId: string) => Promise<void>;
   submitAnswerSheet: (data: AnswerSubmission) => Promise<string | null>;
-  requestMentorshipSession: (data: MentorshipRequest) => Promise< string | null>;
+  requestMentorshipSession: (data: MentorshipRequest) => Promise<string | null>;
   cancelSubscription: (subscriptionId: string) => Promise<void>;
   fetchUserNotifications: (options?: FetchOptions) => Promise<void>;
   markNotificationAsRead: (notificationId: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
   fetchMentors: (options?: FetchOptions) => Promise<void>;
+  // Help & Support actions
+  fetchHelpArticles: (options?: FetchOptions) => Promise<HelpArticle[]>;
+  searchHelpArticles: (query: string) => Promise<HelpArticle[]>;
+  createSupportTicket: (subject: string, description: string, priority: string, type: string) => Promise<string | null>;
+  fetchSupportTickets: (options?: FetchOptions) => Promise<SupportTicket[]>;
+  // Mentorship Feedback & Cancellation actions
   cancelMentorshipSession: (
     sessionId: string,
     reason: string
@@ -682,6 +717,85 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       });
     }
   },
+
+  // Help & Support functionality
+  fetchHelpArticles: async (options) => {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from("help_content")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err: any) {
+      console.error("Error fetching help articles:", err);
+      toast.error("Failed to fetch help articles.");
+      return [];
+    }
+  },
+
+  searchHelpArticles: async (query) => {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from("help_content")
+        .select("*")
+        .eq("is_active", true)
+        .or(`topic.ilike.%${query}%,content.ilike.%${query}%`);
+
+      if (error) throw error;
+      return data || [];
+    } catch (err: any) {
+      console.error("Error searching help articles:", err);
+      toast.error("Failed to search help articles.");
+      return [];
+    }
+  },
+
+  createSupportTicket: async (subject, description, priority, type) => {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await supabase.rpc("create_support_ticket", {
+        p_subject: subject,
+        p_description: description,
+        p_priority: priority,
+        p_type: type,
+      });
+
+      if (error) throw error;
+      toast.success("Support ticket created successfully!");
+      return data;
+    } catch (err: any) {
+      console.error("Error creating support ticket:", err);
+      toast.error("Failed to create support ticket.");
+      return null;
+    }
+  },
+
+  fetchSupportTickets: async (options) => {
+    try {
+      const { user } = useAuthStore.getState();
+      if (!user) return [];
+
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from("support_tickets")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err: any) {
+      console.error("Error fetching support tickets:", err);
+      toast.error("Failed to fetch support tickets.");
+      return [];
+    }
+  },
+
   cancelMentorshipSession: async (sessionId, reason) => {
     set({ loading: true, error: null });
     const { user, refreshProfile } = useAuthStore.getState();
@@ -693,8 +807,6 @@ export const useStudentStore = create<StudentState>((set, get) => ({
 
     try {
       const supabase = await createClient();
-      // It's best to use an RPC function for this to atomically handle
-      // state change, credit refund, and notifications.
       const { error } = await supabase.rpc("cancel_mentorship_by_student", {
         session_id_in: sessionId,
         cancellation_reason_in: reason,
@@ -703,9 +815,8 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       if (error) throw error;
 
       toast.success("Mentorship session has been cancelled.");
-      // Force refresh data
       get().fetchUserMentorshipSessions({ force: true });
-      refreshProfile({ force: true }); // To update credit balance
+      refreshProfile({ force: true });
       return true;
     } catch (err: any) {
       toast.error(err.message || "Failed to cancel the session.");
@@ -716,7 +827,6 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  // ✅ NEW: Implementation for submitting mentorship feedback
   submitMentorshipFeedback: async (sessionId, rating, feedback) => {
     set({ loading: true, error: null });
     const { user } = useAuthStore.getState();
@@ -726,7 +836,6 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       return false;
     }
 
-    // Basic client-side validation
     if (rating < 1 || rating > 5) {
       toast.error("Rating must be between 1 and 5.");
       set({ loading: false });
@@ -742,13 +851,12 @@ export const useStudentStore = create<StudentState>((set, get) => ({
           student_feedback: feedback,
         })
         .eq("id", sessionId)
-        .eq("student_id", user.id) // Ensure user owns this session
-        .eq("status", "completed"); // Only allow feedback on completed sessions
+        .eq("student_id", user.id)
+        .eq("status", "completed");
 
       if (error) throw error;
 
       toast.success("Thank you for your feedback!");
-      // Refresh the sessions list to show the submitted feedback
       get().fetchUserMentorshipSessions({ force: true });
       return true;
     } catch (err: any) {
@@ -761,4 +869,3 @@ export const useStudentStore = create<StudentState>((set, get) => ({
   },
 }));
 export type { MentorshipSessionWithMentor };
-
