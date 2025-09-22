@@ -12,6 +12,37 @@ import {
   MentorshipSessionWithMentor,
 } from "./types"; // Import types from the file above
 
+// Import HelpArticle type
+export type HelpArticle = {
+  id: string;
+  topic: string;
+  slug: string;
+  content: string;
+  keywords: string[];
+  category: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+  faq: boolean;
+};
+
+export type SupportTicket = {
+  id: string;
+  user_id: string;
+  subject: string;
+  description: string;
+  priority: "low" | "medium" | "high" | "urgent";
+  type: "bug" | "question" | "feature_request" | "billing" | "technical" | "other";
+  status: "open" | "in_progress" | "resolved" | "closed";
+  assigned_to: string | null;
+  resolution_notes: string | null;
+  created_at: string;
+  updated_at: string;
+  last_reply_at: string;
+};
+
 // Define the shape of data for creating new records
 type AnswerSubmission = {
   subject_id_in: string;
@@ -153,6 +184,11 @@ type StudentState = {
   markNotificationAsRead: (notificationId: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
   fetchMentors: (options?: FetchOptions) => Promise<void>;
+  // Help & Support actions
+  fetchHelpArticles: (options?: FetchOptions) => Promise<HelpArticle[]>;
+  searchHelpArticles: (query: string) => Promise<HelpArticle[]>;
+  createSupportTicket: (subject: string, description: string, priority: string, type: string) => Promise<string | null>;
+  fetchSupportTickets: (options?: FetchOptions) => Promise<SupportTicket[]>;
 };
 
 const CACHE_DURATION_MS = 2 * 60 * 1000;
@@ -675,6 +711,84 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         notifications: currentNotifications,
         unreadNotificationCount: originalUnreadCount,
       });
+    }
+  },
+
+  // Help & Support functionality
+  fetchHelpArticles: async (options) => {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from("help_content")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err: any) {
+      console.error("Error fetching help articles:", err);
+      toast.error("Failed to fetch help articles.");
+      return [];
+    }
+  },
+
+  searchHelpArticles: async (query) => {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from("help_content")
+        .select("*")
+        .eq("is_active", true)
+        .or(`topic.ilike.%${query}%,content.ilike.%${query}%`);
+
+      if (error) throw error;
+      return data || [];
+    } catch (err: any) {
+      console.error("Error searching help articles:", err);
+      toast.error("Failed to search help articles.");
+      return [];
+    }
+  },
+
+  createSupportTicket: async (subject, description, priority, type) => {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await supabase.rpc("create_support_ticket", {
+        p_subject: subject,
+        p_description: description,
+        p_priority: priority,
+        p_type: type,
+      });
+
+      if (error) throw error;
+      toast.success("Support ticket created successfully!");
+      return data;
+    } catch (err: any) {
+      console.error("Error creating support ticket:", err);
+      toast.error("Failed to create support ticket.");
+      return null;
+    }
+  },
+
+  fetchSupportTickets: async (options) => {
+    try {
+      const { user } = useAuthStore.getState();
+      if (!user) return [];
+
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from("support_tickets")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err: any) {
+      console.error("Error fetching support tickets:", err);
+      toast.error("Failed to fetch support tickets.");
+      return [];
     }
   },
 }));

@@ -88,8 +88,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           { name: "Course Reports", url: `${basePath}/reports/courses`, icon: IconReport },
         ],
         navSecondary: [
-          { title: "Settings", url: `${basePath}/settings`, icon: IconSettings },
-          { title: "Help", url: "#", icon: IconHelp },
+          { title: "Help", url: `${basePath}/help`, icon: IconHelp },
         ],
       }
     }
@@ -106,7 +105,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         { title: "My Subscriptions", url: `${basePath}/subscriptions`, icon: IconPaywall },
       ],
       documents: [],
-      navSecondary: [],
+      navSecondary: [
+        { title: "Help", url: `${basePath}/help`, icon: IconHelp },
+      ],
     }
   }, [profile?.role, basePath])
 
