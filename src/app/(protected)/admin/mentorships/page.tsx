@@ -47,6 +47,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, ExternalLink } from "lucide-react";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 
 // =============================================================================
 // HELPERS
@@ -155,10 +156,41 @@ const columns: ColumnDef<MentorshipSessionWithDetails>[] = [
   },
 ];
 
+const SessionsByMentorChart = ({ data, loading }: { data: { name: string, sessions: number }[], loading: boolean }) => {
+  if (loading) {
+    return <Skeleton className="h-[250px] w-full" />;
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex h-[250px] w-full items-center justify-center">
+        <p className="text-muted-foreground">No assigned mentor data available to display chart.</p>
+      </div>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={250}>
+      <BarChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+        <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+        <Tooltip
+            contentStyle={{
+                background: "var(--card)",
+                borderColor: "var(--border)",
+                borderRadius: "var(--radius)"
+            }}
+            cursor={{ fill: 'var(--accent)' }}
+        />
+        <Bar dataKey="sessions" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+};
+
 // =============================================================================
 // MAIN PAGE
 // =============================================================================
-
 export default function MentorshipSessionsPage() {
   const { fetchMentorshipSessions, mentorshipSessions, loading } = useAdminStore();
   const [activeTab, setActiveTab] = React.useState<string>("requested");
@@ -167,7 +199,27 @@ export default function MentorshipSessionsPage() {
     fetchMentorshipSessions(); // fetch all at once
   }, [fetchMentorshipSessions]);
 
-  // Apply client-side filtering
+  // ✅ 3. CALCULATE CHART DATA CLIENT-SIDE
+  const chartData = React.useMemo(() => {
+    if (!mentorshipSessions) return [];
+
+    // Count sessions for each assigned mentor
+    const mentorCounts = mentorshipSessions.reduce((acc, session) => {
+      // Only count sessions that have an assigned mentor
+      if (session.mentor?.full_name) {
+        const mentorName = session.mentor.full_name;
+        acc[mentorName] = (acc[mentorName] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+    
+    // Format for the chart library
+    return Object.entries(mentorCounts)
+      .map(([name, sessions]) => ({ name, sessions }))
+      .sort((a, b) => b.sessions - a.sessions); // Sort for better visualization
+  }, [mentorshipSessions]);
+
+  // Apply client-side filtering for the table
   const filteredSessions =
     activeTab === "all"
       ? mentorshipSessions
@@ -180,8 +232,22 @@ export default function MentorshipSessionsPage() {
           Mentorship Sessions
         </h2>
       </div>
+
+      {/* ✅ 4. ADD THE NEW CHART CARD TO THE UI */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Sessions by Mentor</CardTitle>
+          <CardDescription>
+            A summary of all assigned sessions handled by each mentor.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SessionsByMentorChart data={chartData} loading={loading.mentorshipSessions} />
+        </CardContent>
+      </Card>
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-4 md:grid-cols-8">
           <TabsTrigger value="requested">Requested</TabsTrigger>
           <TabsTrigger value="pending_confirmation">Pending</TabsTrigger>
           <TabsTrigger value="confirmed">Confirmed</TabsTrigger>

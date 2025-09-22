@@ -50,6 +50,8 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MoreHorizontal, ChevronDown, Search } from "lucide-react";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
+
 
 // =============================================================================
 // 1. HELPER COMPONENTS & FUNCTIONS
@@ -143,8 +145,40 @@ const columns: ColumnDef<AdminAnswerView>[] = [
   },
 ];
 
+const SubmissionsBySubjectChart = ({ data, loading }: { data: { name: string, count: number }[], loading: boolean }) => {
+  if (loading) {
+    return <Skeleton className="h-[250px] w-full" />;
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex h-[250px] w-full items-center justify-center">
+        <p className="text-muted-foreground">No submission data available to display chart.</p>
+      </div>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={250}>
+      <BarChart data={data} layout="vertical" margin={{ left: 20 }}>
+        <XAxis type="number" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+        <YAxis type="category" dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} width={100} />
+        <Tooltip
+            contentStyle={{
+                background: "var(--card)",
+                borderColor: "var(--border)",
+                borderRadius: "var(--radius)"
+            }}
+            cursor={{ fill: 'var(--accent)' }}
+        />
+        <Bar dataKey="count" fill="var(--primary)" radius={[0, 4, 4, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+};
+
 export default function AnswersheetsPage() {
-  const { fetchAnswers, fetchFaculty } = useAdminStore();
+  const { answers, fetchAnswers, fetchFaculty, loading } = useAdminStore();
   const [activeTab, setActiveTab] = React.useState<string>("pending_assignment");
 
   React.useEffect(() => { fetchFaculty(); }, [fetchFaculty]);
@@ -153,12 +187,43 @@ export default function AnswersheetsPage() {
     const status = activeTab === 'all' ? undefined : activeTab;
     fetchAnswers(status as any);
   }, [activeTab, fetchAnswers]);
+  
+  // ✅ 3. CALCULATE CHART DATA CLIENT-SIDE
+  const chartData = React.useMemo(() => {
+    if (!answers) return [];
+
+    // Count submissions for each subject
+    const subjectCounts = answers.reduce((acc, answer) => {
+      const subjectName = answer.subjects?.name || 'Uncategorized';
+      acc[subjectName] = (acc[subjectName] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    // Format for the chart library
+    return Object.entries(subjectCounts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count); // Sort for better visualization
+  }, [answers]);
 
   return (
-    <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
+    <div className="flex-1 space-y-4 p-4 pt-6 pb-6 md:p-8">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Answersheets</h2>
       </div>
+
+      {/* ✅ 4. ADD THE NEW CHART CARD TO THE UI */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Submissions by Subject</CardTitle>
+          <CardDescription>
+            A breakdown of submissions based on the currently filtered list below.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SubmissionsBySubjectChart data={chartData} loading={loading.answers} />
+        </CardContent>
+      </Card>
+      
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="pending_assignment">Pending</TabsTrigger>
