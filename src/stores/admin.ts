@@ -4,6 +4,10 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import { createClient } from "@/utils/client";
 
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
 export type AnswerStatus =
   | "pending_assignment"
   | "in_evaluation"
@@ -37,7 +41,7 @@ export type Subject = {
   category: "gs" | "specialized";
   is_active: boolean;
   sort_order: number;
-  total_answers_submitted: number; // Add this line
+  total_answers_submitted: number;
 };
 
 export type QuestionPaper = {
@@ -181,19 +185,17 @@ type AuditActionType = "INSERT" | "UPDATE" | "DELETE";
 
 export interface AuditLog {
   id: number;
-  timestamp: string; // Supabase returns timestamptz as an ISO 8601 string
+  timestamp: string;
   actor_id: string | null;
   action: AuditActionType;
   target_table: string;
   target_record_id: string | null;
-  old_record: Record<string, any> | null; // JSONB is treated as an object
-  new_record: Record<string, any> | null; // JSONB is treated as an object
+  old_record: Record<string, any> | null;
+  new_record: Record<string, any> | null;
   notes: string | null;
 }
 
 type AuditLogWithActor = AuditLog & { actor: { full_name: string } | null };
-
-// --- Add these new types for the Support System ---
 
 export type SupportTicketStatus =
   | "open"
@@ -241,7 +243,6 @@ export type SupportTicketAttachment = {
   uploaded_at: string;
 };
 
-// This type will hold the complete view of a single ticket
 export type CurrentSupportTicket = {
   ticket: SupportTicketWithDetails;
   messages: SupportTicketMessage[];
@@ -277,20 +278,7 @@ export type OrderWithDetails = {
   plan: { name: string | null };
 };
 
-export type CreditTransactionWithDetails = {
-  id: string;
-  user_id: string;
-  credit_type: "gs" | "specialized" | "mentorship";
-  amount: number;
-  balance_after: number;
-  transaction_type:
-    | "purchase"
-    | "consumption"
-    | "refund"
-    | "admin_adjustment"
-    | "bonus";
-  notes: string | null;
-  created_at: string;
+export type CreditTransactionWithDetails = CreditTransaction & {
   user: { full_name: string | null };
 };
 
@@ -318,205 +306,243 @@ export type Report = {
     endDate: string;
     modules: string[];
   };
-  data: any; // The generated JSON data
+  data: any;
   generated_at: string;
 };
 
-// --- ZUSTAND STORE DEFINITION ---
-
-type AdminState = {
-  // State
-  dashboardStats: AdminDashboardStats | null;
-  students: AdminProfile[] | null;
-  faculty: AdminProfile[] | null;
-  answers: AdminAnswerView[] | null;
-  facultyWorkload: FacultyWorkload | null;
-  creditLogs: CreditTransaction[] | null;
-  plans: any[] | null;
-  questionPapers: QuestionPaper[] | null;
-  userSubscriptions: UserSubscription[] | null;
-  currentAnswer: AdminAnswerView | null;
-  currentUser: AdminProfile | null;
-  mentorshipSessions: MentorshipSessionWithDetails[] | null;
-  currentMentorshipSession: MentorshipSessionWithDetails | null;
-  revenueData: RevenueDataPoint[];
-  planPerformanceData: PlanPerformanceDataPoint[];
-  creditEconomyData: CreditEconomyDataPoint[];
-  loading: Record<string, boolean>;
-  error: string | null;
-  lastFetched: Record<string, number | null>;
-  supportTickets: SupportTicketWithDetails[] | null;
-  currentSupportTicket: CurrentSupportTicket | null;
-  planPurchaseStats: PlanPurchaseStat[] | null;
-  currentPlan: Plan | null;
-  subjects: Subject[] | null;
-  paginatedOrders: PaginatedData<OrderWithDetails> | null;
-  paginatedCreditTxs: PaginatedData<CreditTransactionWithDetails> | null;
-  creditEconomyTrends: CreditEconomyTrend[] | null;
-  currentOrder: OrderWithAllDetails | null;
-  reports: Report[] | null;
-  currentReport: Report | null;
-  logs: AuditLog[] | null;
-
-  // Actions
-  setLoading: (key: string, value: boolean) => void;
-  fetchDashboardStats: (options?: FetchOptions) => Promise<void>;
-  fetchStudents: (options?: FetchOptions) => Promise<void>;
-  fetchFaculty: (options?: FetchOptions) => Promise<void>;
-  updateProfile: (
-    userId: string,
-    data: Partial<AdminProfile>
-  ) => Promise<boolean>;
-  createUser: (
-    email: string,
-    password: string,
-    profileData: ProfileUpsertData
-  ) => Promise<string | null>;
-  deleteUser: (userId: string) => Promise<boolean>;
-  fetchUserSubscriptions: (userId: string) => Promise<void>;
-  fetchAnswers: (
-    statusFilter?: AnswerStatus,
-    options?: FetchOptions
-  ) => Promise<void>;
-  reassignAnswer: (answerId: string, facultyId: string) => Promise<boolean>;
-  fetchFacultyWorkloadById: (id: string) => Promise<void>;
-  fetchPlans: (
-    includeInactive?: boolean,
-    options?: FetchOptions
-  ) => Promise<void>;
-  updatePlan: (planId: string, data: Partial<any>) => Promise<boolean>;
-  createPlan: (data: any) => Promise<boolean>;
-  fetchCreditLogs: (limit?: number, options?: FetchOptions) => Promise<void>;
-  fetchOverdueAnswers: (options?: FetchOptions) => Promise<void>;
-  sendNotification: (
-    userId: string,
-    title: string,
-    message: string
-  ) => Promise<boolean>;
-  adjustUserCredits: (
-    userId: string,
-    creditType: string,
-    amount: number,
-    reason: string
-  ) => Promise<boolean>;
-  fetchMentorshipSessions: (options?: FetchOptions) => Promise<void>;
-  fetchMentorshipSessionById: (sessionId: string) => Promise<void>;
-  updateMentorshipSession: (
-    sessionId: string,
-    data: Partial<MentorshipSessionWithDetails>
-  ) => Promise<boolean>;
-  cancelMentorshipSession: (
-    sessionId: string,
-    reason: string
-  ) => Promise<boolean>;
-  clearCurrentMentorshipSession: () => void;
-  fetchAnswerById: (id: string) => Promise<void>;
-  clearCurrentAnswer: () => void;
-  fetchUserById: (id: string) => Promise<void>;
-  clearCurrentUser: () => void;
-  fetchRevenueData: (
-    periodType: "daily" | "weekly" | "monthly",
-    daysLimit: number,
-    options?: FetchOptions
-  ) => Promise<void>;
-  fetchPlanPerformance: (
-    daysLimit: number,
-    options?: FetchOptions
-  ) => Promise<void>;
-  fetchCreditEconomyData: (
-    daysLimit: number,
-    options?: FetchOptions
-  ) => Promise<void>;
-  fetchLogs: (options?: FetchOptions) => Promise<void>;
-  fetchSupportTickets: (
-    statusFilter?: SupportTicketStatus,
-    options?: FetchOptions
-  ) => Promise<void>;
-  fetchSupportTicketById: (ticketId: string) => Promise<void>;
-  updateSupportTicket: (
-    ticketId: string,
-    data: Partial<SupportTicketWithDetails>
-  ) => Promise<boolean>;
-  addSupportTicketMessage: (
-    ticketId: string,
-    message: string
-  ) => Promise<boolean>;
-  clearCurrentSupportTicket: () => void;
-
-  fetchPlanPurchaseStats: (options?: FetchOptions) => Promise<void>;
-  fetchPlanById: (planId: string) => Promise<void>;
-  clearCurrentPlan: () => void;
-  deletePlan: (planId: string) => Promise<boolean>;
-  fetchSubjects: (options?: FetchOptions) => Promise<void>;
-  createSubject: (data: Omit<Subject, "id">) => Promise<boolean>;
-  updateSubject: (
-    subjectId: string,
-    data: Partial<Subject>
-  ) => Promise<boolean>;
-  deleteSubject: (subjectId: string) => Promise<boolean>;
-  fetchPaginatedOrders: (
-    page: number,
-    pageSize: number,
-    filters: { status?: string }
-  ) => Promise<void>;
-  fetchPaginatedCreditTxs: (
-    page: number,
-    pageSize: number,
-    filters: { type?: string }
-  ) => Promise<void>;
-  fetchCreditEconomyTrends: (options?: FetchOptions) => Promise<void>;
-  fetchOrderById: (orderId: string) => Promise<void>;
-  fetchReports: () => Promise<void>;
-  fetchReportById: (reportId: string) => Promise<void>;
-  generateReport: (
-    name: string,
-    parameters: Report["parameters"]
-  ) => Promise<Report | null>;
-};
+// ============================================================================
+// ZUSTAND STORE DEFINITION
+// ============================================================================
 
 const CACHE_DURATION_MS = 2 * 60 * 1000; // 2 minutes
 
-export const useAdminStore = create<AdminState>((set, get) => ({
-  // --- INITIAL STATE ---
-  dashboardStats: null,
-  students: null,
-  faculty: null,
-  answers: null,
-  facultyWorkload: null,
-  creditLogs: null,
-  plans: null,
-  questionPapers: null,
-  notificationTemplates: null,
-  userSubscriptions: null,
-  currentAnswer: null,
-  currentUser: null,
-  mentorshipSessions: null,
-  currentMentorshipSession: null,
-  revenueData: [],
-  planPerformanceData: [],
-  creditEconomyData: [],
-  supportTickets: null,
-  currentSupportTicket: null,
-  planPurchaseStats: null,
-  currentPlan: null,
-  subjects: null,
-  paginatedOrders: null,
-  paginatedCreditTxs: null,
-  creditEconomyTrends: null,
-  currentOrder: null,
-  reports: null,
-  currentReport: null,
+/**
+ * Defines the state and actions for the admin dashboard.
+ * This store manages all data related to users, answers, plans, analytics, etc.
+ */
+type AdminState = {
+  // --- STATE PROPERTIES ---
+  // Core Data
+  students: AdminProfile[] | null;
+  faculty: AdminProfile[] | null;
+  answers: AdminAnswerView[] | null;
+  mentorshipSessions: MentorshipSessionWithDetails[] | null;
+  plans: Plan[] | null;
+  subjects: Subject[] | null;
+  supportTickets: SupportTicketWithDetails[] | null;
+  reports: Report[] | null;
+  logs: AuditLogWithActor[] | null;
+  creditLogs: CreditTransaction[] | null; // ✅ FIX: Re-added the missing creditLogs property
 
-  logs: [],
-  loading: {},
-  error: null,
-  lastFetched: {},
+  // Paginated Data
+  paginatedOrders: PaginatedData<OrderWithDetails> | null;
+  paginatedCreditTxs: PaginatedData<CreditTransactionWithDetails> | null;
+
+  // Analytics & Dashboard Data
+  dashboardStats: AdminDashboardStats | null;
+  revenueData: RevenueDataPoint[];
+  planPerformanceData: PlanPerformanceDataPoint[];
+  creditEconomyData: CreditEconomyDataPoint[];
+  creditEconomyTrends: CreditEconomyTrend[] | null;
+  planPurchaseStats: PlanPurchaseStat[] | null;
+
+  // Detail/Single-Item View State
+  currentUser: AdminProfile | null;
+  currentAnswer: AdminAnswerView | null;
+  currentMentorshipSession: MentorshipSessionWithDetails | null;
+  currentSupportTicket: CurrentSupportTicket | null;
+  currentPlan: Plan | null;
+  currentOrder: OrderWithAllDetails | null;
+  currentReport: Report | null;
+  facultyWorkload: FacultyWorkload | null;
+  userSubscriptions: UserSubscription[] | null;
+
+  // UI State
+  loading: Record<string, boolean>;
+  lastFetched: Record<string, number | null>;
+  error: string | null;
+
 
   // --- ACTIONS ---
 
+  //region ------------------- GENERAL & UI ACTIONS -------------------
+  /** Sets the loading state for a specific key. */
+  setLoading: (key: string, value: boolean) => void;
+  /** Clears the currently selected user from the state. */
+  clearCurrentUser: () => void;
+  /** Clears the currently selected answer from the state. */
+  clearCurrentAnswer: () => void;
+  /** Clears the currently selected mentorship session from the state. */
+  clearCurrentMentorshipSession: () => void;
+  /** Clears the currently selected support ticket from the state. */
+  clearCurrentSupportTicket: () => void;
+  /** Clears the currently selected plan from the state. */
+  clearCurrentPlan: () => void;
+  //endregion
+
+  //region ------------------- DASHBOARD & ANALYTICS -------------------
+  /** Fetches the main statistics for the admin dashboard. */
+  fetchDashboardStats: (options?: FetchOptions) => Promise<void>;
+  /** Fetches revenue data over a specified time period. */
+  fetchRevenueData: (periodType: "daily" | "weekly" | "monthly", daysLimit: number, options?: FetchOptions) => Promise<void>;
+  /** Fetches performance data for subscription plans. */
+  fetchPlanPerformance: (daysLimit: number, options?: FetchOptions) => Promise<void>;
+  /** Fetches data on credit purchases vs. consumption. */
+  fetchCreditEconomyData: (daysLimit: number, options?: FetchOptions) => Promise<void>;
+  /** Fetches weekly trends of credit purchases and consumption. */
+  fetchCreditEconomyTrends: (options?: FetchOptions) => Promise<void>;
+  /** Fetches statistics on how many times each plan has been purchased. */
+  fetchPlanPurchaseStats: (options?: FetchOptions) => Promise<void>;
+  /** Fetches all generated reports. */
+  fetchReports: () => Promise<void>;
+  /** Fetches a single report by its ID. */
+  fetchReportById: (reportId: string) => Promise<void>;
+  /** Triggers the generation of a new report. */
+  generateReport: (name: string, parameters: Report["parameters"]) => Promise<Report | null>;
+  //endregion
+
+  //region ------------------- USER MANAGEMENT -------------------
+  /** Fetches a list of all students. */
+  fetchStudents: (options?: FetchOptions) => Promise<void>;
+  /** Fetches a list of all faculty members. */
+  fetchFaculty: (options?: FetchOptions) => Promise<void>;
+  /** Fetches a single user's profile by their ID. */
+  fetchUserById: (id: string) => Promise<void>;
+  /** Fetches a specific user's subscription details. */
+  fetchUserSubscriptions: (userId: string) => Promise<void>;
+  /** Fetches a faculty member's current workload statistics. */
+  fetchFacultyWorkloadById: (id: string) => Promise<void>;
+  /** Creates a new user (student or faculty) in the system. */
+  createUser: (email: string, password: string, profileData: ProfileUpsertData) => Promise<string | null>;
+  /** Updates a user's profile information. */
+  updateProfile: (userId: string, data: Partial<AdminProfile>) => Promise<boolean>;
+  /** Changes a user's password. */
+  changePassword: (userId: string, newPassword: string) => Promise<boolean>;
+  /** Permanently deletes a user from the system. */
+  deleteUser: (userId: string) => Promise<boolean>;
+  /** Adjusts a user's credit balance manually. */
+  adjustUserCredits: (userId: string, creditType: string, amount: number, reason: string) => Promise<boolean>;
+  /** Sends a notification to a specific user. */
+  sendNotification: (userId: string, title: string, message: string) => Promise<boolean>;
+  //endregion
+
+  //region ------------------- ANSWER MANAGEMENT -------------------
+  /** Fetches a list of answers, optionally filtered by status. */
+  fetchAnswers: (statusFilter?: AnswerStatus, options?: FetchOptions) => Promise<void>;
+  /** Fetches a single answer by its ID. */
+  fetchAnswerById: (id: string) => Promise<void>;
+  /** Reassigns an answer to a different faculty member. */
+  reassignAnswer: (answerId: string, facultyId: string) => Promise<boolean>;
+  /** Fetches answers that are past their expected completion date. */
+  fetchOverdueAnswers: (options?: FetchOptions) => Promise<void>;
+  //endregion
+
+  //region ------------------- MENTORSHIP MANAGEMENT -------------------
+  /** Fetches all mentorship sessions. */
+  fetchMentorshipSessions: (options?: FetchOptions) => Promise<void>;
+  /** Fetches a single mentorship session by its ID. */
+  fetchMentorshipSessionById: (sessionId: string) => Promise<void>;
+  /** Updates the details of a mentorship session (e.g., assigns a mentor, changes status). */
+  updateMentorshipSession: (sessionId: string, data: Partial<MentorshipSessionWithDetails>) => Promise<boolean>;
+  /** Cancels a mentorship session. */
+  cancelMentorshipSession: (sessionId: string, reason: string) => Promise<boolean>;
+  //endregion
+
+  //region ------------------- PLANS & SUBJECTS MANAGEMENT -------------------
+  /** Fetches all subscription plans. */
+  fetchPlans: (includeInactive?: boolean, options?: FetchOptions) => Promise<void>;
+  /** Fetches a single plan by its ID. */
+  fetchPlanById: (planId: string) => Promise<void>;
+  /** Creates a new subscription plan. */
+  createPlan: (data: any) => Promise<boolean>;
+  /** Updates an existing subscription plan. */
+  updatePlan: (planId: string, data: Partial<Plan>) => Promise<boolean>;
+  /** Deletes a subscription plan. */
+  deletePlan: (planId: string) => Promise<boolean>;
+  /** Fetches all subjects. */
+  fetchSubjects: (options?: FetchOptions) => Promise<void>;
+  /** Creates a new subject. */
+  createSubject: (data: Omit<Subject, "id">) => Promise<boolean>;
+  /** Updates an existing subject. */
+  updateSubject: (subjectId: string, data: Partial<Subject>) => Promise<boolean>;
+  /** Deletes a subject. */
+  deleteSubject: (subjectId: string) => Promise<boolean>;
+  //endregion
+
+  //region ------------------- FINANCIAL & LOGS -------------------
+  /** Fetches orders with pagination and filtering. */
+  fetchPaginatedOrders: (page: number, pageSize: number, filters: { status?: string }) => Promise<void>;
+  /** Fetches a single order and its associated transactions by ID. */
+  fetchOrderById: (orderId: string) => Promise<void>;
+  /** Fetches credit transaction logs with pagination and filtering. */
+  fetchPaginatedCreditTxs: (page: number, pageSize: number, filters: { type?: string }) => Promise<void>;
+  /** Fetches a list of all credit transactions (for non-paginated views). */
+  fetchCreditLogs: (limit?: number, options?: FetchOptions) => Promise<void>;
+  /** Fetches the audit logs for administrative actions. */
+  fetchLogs: (options?: FetchOptions) => Promise<void>;
+  //endregion
+
+  //region ------------------- SUPPORT SYSTEM -------------------
+  /** Fetches support tickets, optionally filtered by status. */
+  fetchSupportTickets: (statusFilter?: SupportTicketStatus, options?: FetchOptions) => Promise<void>;
+  /** Fetches a single support ticket and its messages by ID. */
+  fetchSupportTicketById: (ticketId: string) => Promise<void>;
+  /** Updates a support ticket's details (e.g., status, assignee). */
+  updateSupportTicket: (ticketId: string, data: Partial<SupportTicketWithDetails>) => Promise<boolean>;
+  /** Adds a new message reply to a support ticket. */
+  addSupportTicketMessage: (ticketId: string, message: string) => Promise<boolean>;
+  //endregion
+};
+
+export const useAdminStore = create<AdminState>((set, get) => ({
+  // --- INITIAL STATE ---
+  students: null,
+  faculty: null,
+  answers: null,
+  mentorshipSessions: null,
+  plans: null,
+  subjects: null,
+  supportTickets: null,
+  reports: null,
+  logs: null,
+  creditLogs: null, // ✅ FIX: Re-added the missing creditLogs property
+  paginatedOrders: null,
+  paginatedCreditTxs: null,
+  dashboardStats: null,
+  revenueData: [],
+  planPerformanceData: [],
+  creditEconomyData: [],
+  creditEconomyTrends: null,
+  planPurchaseStats: null,
+  currentUser: null,
+  currentAnswer: null,
+  currentMentorshipSession: null,
+  currentSupportTicket: null,
+  currentPlan: null,
+  currentOrder: null,
+  currentReport: null,
+  facultyWorkload: null,
+  userSubscriptions: null,
+  loading: {},
+  lastFetched: {},
+  error: null,
+
+  // ============================================================================
+  // ACTION IMPLEMENTATIONS
+  // ============================================================================
+
+  //region ------------------- GENERAL & UI ACTIONS -------------------
   setLoading: (key, value) =>
     set((state) => ({ loading: { ...state.loading, [key]: value } })),
 
+  clearCurrentUser: () => set({ currentUser: null }),
+  clearCurrentAnswer: () => set({ currentAnswer: null }),
+  clearCurrentMentorshipSession: () => set({ currentMentorshipSession: null }),
+  clearCurrentSupportTicket: () => set({ currentSupportTicket: null }),
+  clearCurrentPlan: () => set({ currentPlan: null }),
+  //endregion
+
+  //region ------------------- DASHBOARD & ANALYTICS -------------------
   fetchDashboardStats: async (options) => {
     const cacheKey = "dashboardStats";
     const { dashboardStats, lastFetched } = get();
@@ -547,7 +573,6 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   fetchRevenueData: async (periodType = "daily", daysLimit = 90, options) => {
     const cacheKey = `revenueData_${periodType}_${daysLimit}`;
     const { lastFetched } = get();
-    // Simplified caching for reports: cache the last requested view.
     if (
       !options?.force &&
       lastFetched[cacheKey] &&
@@ -630,6 +655,131 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
 
+  fetchCreditEconomyTrends: async (options) => {
+    const cacheKey = "creditEconomyTrends";
+    const { creditEconomyTrends, lastFetched } = get();
+    if (
+      !options?.force &&
+      creditEconomyTrends &&
+      lastFetched[cacheKey] &&
+      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
+    ) {
+      return;
+    }
+    get().setLoading(cacheKey, true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("get_credit_economy_trends");
+      if (error) throw error;
+      set((state) => ({
+        creditEconomyTrends: data,
+        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
+      }));
+    } catch (err: any) {
+      toast.error("Failed to fetch credit economy trends.");
+    } finally {
+      get().setLoading(cacheKey, false);
+    }
+  },
+
+  fetchPlanPurchaseStats: async (options) => {
+    const cacheKey = "planPurchaseStats";
+    const { planPurchaseStats, lastFetched } = get();
+    if (
+      !options?.force &&
+      planPurchaseStats &&
+      lastFetched[cacheKey] &&
+      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
+    ) {
+      return;
+    }
+    get().setLoading(cacheKey, true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("get_plan_purchase_stats");
+      if (error) throw error;
+      set((state) => ({
+        planPurchaseStats: data,
+        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
+      }));
+    } catch (err: any) {
+      toast.error("Failed to fetch plan purchase stats.");
+    } finally {
+      get().setLoading(cacheKey, false);
+    }
+  },
+
+  fetchReports: async () => {
+    get().setLoading("reports", true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("reports")
+        .select("*")
+        .order("generated_at", { ascending: false });
+      if (error) throw error;
+      set({ reports: data });
+    } catch (err) {
+      toast.error("Failed to fetch reports.");
+    } finally {
+      get().setLoading("reports", false);
+    }
+  },
+
+  fetchReportById: async (reportId) => {
+    get().setLoading("currentReport", true);
+    set({ currentReport: null });
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("reports")
+        .select("*")
+        .eq("id", reportId)
+        .single();
+      if (error) throw error;
+      set({ currentReport: data });
+    } catch (err) {
+      toast.error("Failed to fetch report.");
+    } finally {
+      get().setLoading("currentReport", false);
+    }
+  },
+
+  generateReport: async (name, parameters) => {
+    get().setLoading("reports", true);
+    try {
+      const supabase = createClient();
+      const { data: reportData, error: rpcError } = await supabase.rpc(
+        "generate_report_data",
+        { params: parameters }
+      );
+      if (rpcError) throw rpcError;
+
+      const { data: newReport, error: insertError } = await supabase
+        .from("reports")
+        .insert({
+          name,
+          parameters,
+          data: reportData,
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      toast.success("Report generated successfully!");
+      get().fetchReports();
+      return newReport;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate report.");
+      return null;
+    } finally {
+      get().setLoading("reports", false);
+    }
+  },
+  //endregion
+
+  //region ------------------- USER MANAGEMENT -------------------
   fetchStudents: async (options) => {
     const cacheKey = "students";
     const { students, lastFetched } = get();
@@ -692,209 +842,60 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
 
-  fetchAnswers: async (statusFilter, options) => {
-    const cacheKey = statusFilter ? `answers_${statusFilter}` : "answers";
-    const { answers, lastFetched } = get();
-    if (
-      !options?.force &&
-      answers && // Check general answers state
-      lastFetched[cacheKey] &&
-      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
-    ) {
-      return;
-    }
-    get().setLoading("answers", true);
-    try {
-      const supabase = createClient();
-      let query = supabase.from("answers").select(`
-        *,
-        subjects(*),
-        student:profiles!student_id(full_name),
-        assigned_faculty:profiles!assigned_faculty_id(full_name)
-      `);
-      if (statusFilter) {
-        query = query.eq("status", statusFilter);
-      }
-      const { data, error } = await query.order("submitted_at", {
-        ascending: false,
-      });
-      if (error) throw error;
-      set((state) => ({
-        answers: data as AdminAnswerView[],
-        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
-      }));
-    } catch (err: any) {
-      toast.error("Failed to fetch answersheets.");
-    } finally {
-      get().setLoading("answers", false);
-    }
-  },
-
-  fetchPlans: async (includeInactive = true, options) => {
-    const cacheKey = `plans_${includeInactive}`;
-    const { plans, lastFetched } = get();
-    if (
-      !options?.force &&
-      plans &&
-      lastFetched[cacheKey] &&
-      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
-    ) {
-      return;
-    }
-    get().setLoading("plans", true);
-    try {
-      const supabase = createClient();
-      let query = supabase.from("plans").select("*");
-      if (!includeInactive) {
-        query = query.eq("is_active", true);
-      }
-      const { data, error } = await query.order("price");
-      if (error) throw error;
-      set((state) => ({
-        plans: data,
-        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
-      }));
-    } catch (err: any) {
-      toast.error("Failed to fetch plans.");
-    } finally {
-      get().setLoading("plans", false);
-    }
-  },
-
-  fetchCreditLogs: async (limit = 100, options) => {
-    const cacheKey = "creditLogs";
-    const { creditLogs, lastFetched } = get();
-    if (
-      !options?.force &&
-      creditLogs &&
-      lastFetched[cacheKey] &&
-      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
-    ) {
-      return;
-    }
-    get().setLoading(cacheKey, true);
+  fetchUserById: async (id) => {
+    get().setLoading("currentUser", true);
+    set({ currentUser: null });
     try {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("credit_transactions")
-        .select("*, user:profiles(full_name)")
-        .order("created_at", { ascending: false })
-        .limit(limit);
-      if (error) throw error;
-      set((state) => ({
-        creditLogs: data as CreditTransaction[],
-        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
-      }));
-    } catch (err: any) {
-      toast.error("Failed to fetch credit logs.");
-    } finally {
-      get().setLoading(cacheKey, false);
-    }
-  },
-
-  fetchMentorshipSessions: async (options) => {
-    const cacheKey = "mentorshipSessions";
-    const { mentorshipSessions, lastFetched } = get();
-    if (
-      !options?.force &&
-      mentorshipSessions &&
-      lastFetched[cacheKey] &&
-      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
-    ) {
-      return;
-    }
-    get().setLoading(cacheKey, true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("mentorship_sessions")
-        .select(
-          `*, student:profiles!student_id(full_name), mentor:profiles!mentor_id(full_name)`
-        )
-        .order("requested_at", { ascending: false });
-      if (error) throw error;
-      set((state) => ({
-        mentorshipSessions: data as MentorshipSessionWithDetails[],
-        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
-      }));
-    } catch (err: any) {
-      toast.error("Failed to fetch mentorship sessions.");
-    } finally {
-      get().setLoading(cacheKey, false);
-    }
-  },
-
-  fetchLogs: async (options) => {
-    const cacheKey = "logs";
-    const { logs, lastFetched } = get();
-
-    // Return cached data if available and not forced to refresh
-    if (
-      !options?.force &&
-      logs &&
-      lastFetched[cacheKey] &&
-      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
-    ) {
-      return;
-    }
-
-    get().setLoading(cacheKey, true);
-    try {
-      const supabase = createClient();
-
-      // ✅ MODIFIED: The .select() query now joins with the profiles table.
-      // It fetches all columns from audit_log (*) and for the 'actor_id',
-      // it fetches the 'full_name' from the 'profiles' table, renaming it to 'actor'.
-      const { data, error } = await supabase
-        .from("audit_log")
-        .select("*, actor:profiles(full_name)")
-        .order("timestamp", { ascending: false });
-
-      if (error) throw error;
-
-      set((state) => ({
-        // Assuming you have a type like AuditLogWithActor that includes the nested actor
-        logs: data as AuditLogWithActor[],
-        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
-      }));
-    } catch (err: any) {
-      toast.error("Failed to fetch audit logs.");
-    } finally {
-      get().setLoading(cacheKey, false);
-    }
-  },
-
-  // --- ACTIONS THAT MODIFY DATA (CACHE INVALIDATION) ---
-
-  updateProfile: async (userId, data) => {
-    get().setLoading(`profile_${userId}`, true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
         .from("profiles")
-        .update(data)
-        .eq("id", userId);
+        .select("*")
+        .eq("id", id)
+        .single();
       if (error) throw error;
-      toast.success("Profile updated successfully.");
-      // Force refresh the relevant lists
-      if (
-        data.role === "student" ||
-        get().students?.some((s) => s.id === userId)
-      ) {
-        get().fetchStudents({ force: true });
-      }
-      if (
-        data.role === "faculty" ||
-        get().faculty?.some((f) => f.id === userId)
-      ) {
-        get().fetchFaculty({ force: true });
-      }
-      return true;
+      set({ currentUser: data as AdminProfile });
     } catch (err: any) {
-      toast.error("Failed to update profile.");
-      return false;
+      toast.error("Failed to fetch user details.");
     } finally {
-      get().setLoading(`profile_${userId}`, false);
+      get().setLoading("currentUser", false);
+    }
+  },
+
+  fetchUserSubscriptions: async (userId) => {
+    get().setLoading("userSubscriptions", true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("id, status, current_period_end, plans(name, price)")
+        .eq("user_id", userId);
+      if (error) throw error;
+      set({ userSubscriptions: data as UserSubscription[] });
+    } catch (err: any) {
+      toast.error("Failed to fetch user subscriptions.");
+    } finally {
+      get().setLoading("userSubscriptions", false);
+    }
+  },
+
+  fetchFacultyWorkloadById: async (id) => {
+    get().setLoading("facultyWorkload", true);
+    set({ facultyWorkload: null });
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("faculty_workload")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+      set({ facultyWorkload: data as FacultyWorkload });
+    } catch (err: any) {
+      if (err.code !== "PGRST116") {
+        toast.error("Failed to fetch faculty workload.");
+      }
+    } finally {
+      get().setLoading("facultyWorkload", false);
     }
   },
 
@@ -927,6 +928,49 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
 
+  updateProfile: async (userId, data) => {
+    get().setLoading(`profile_${userId}`, true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("profiles")
+        .update(data)
+        .eq("id", userId);
+      if (error) throw error;
+      toast.success("Profile updated successfully.");
+      if (data.role === "student" || get().students?.some((s) => s.id === userId)) {
+        get().fetchStudents({ force: true });
+      }
+      if (data.role === "faculty" || get().faculty?.some((f) => f.id === userId)) {
+        get().fetchFaculty({ force: true });
+      }
+      return true;
+    } catch (err: any) {
+      toast.error("Failed to update profile.");
+      return false;
+    } finally {
+      get().setLoading(`profile_${userId}`, false);
+    }
+  },
+
+  changePassword: async (userId, newPassword) => {
+    get().setLoading(`password_${userId}`, true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.admin.updateUserById(userId, {
+        password: newPassword,
+      });
+      if (error) throw error;
+      toast.success("Password changed successfully.");
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to change password.");
+      return false;
+    } finally {
+      get().setLoading(`password_${userId}`, false);
+    }
+  },
+
   deleteUser: async (userId) => {
     if (!confirm("Are you sure? This action is permanent.")) return false;
     get().setLoading(`user_${userId}`, true);
@@ -943,63 +987,6 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       return false;
     } finally {
       get().setLoading(`user_${userId}`, false);
-    }
-  },
-
-  reassignAnswer: async (answerId, facultyId) => {
-    get().setLoading(`answer_${answerId}`, true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.rpc("assign_answer_to_faculty", {
-        p_answer_id: answerId,
-        p_faculty_id: facultyId,
-      });
-      if (error) throw error;
-      toast.success("Answer reassigned successfully.");
-      get().fetchAnswers(undefined, { force: true });
-      return true;
-    } catch (err: any) {
-      toast.error(err.message || "Failed to reassign answer.");
-      return false;
-    } finally {
-      get().setLoading(`answer_${answerId}`, false);
-    }
-  },
-
-  updatePlan: async (planId, data) => {
-    get().setLoading("plans", true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("plans")
-        .update(data)
-        .eq("id", planId);
-      if (error) throw error;
-      toast.success("Plan updated successfully.");
-      get().fetchPlans(true, { force: true });
-      return true;
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update plan.");
-      return false;
-    } finally {
-      get().setLoading("plans", false);
-    }
-  },
-
-  createPlan: async (data) => {
-    get().setLoading("plans", true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.from("plans").insert([data]);
-      if (error) throw error;
-      toast.success("Plan created successfully.");
-      get().fetchPlans(true, { force: true });
-      return true;
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create plan.");
-      return false;
-    } finally {
-      get().setLoading("plans", false);
     }
   },
 
@@ -1023,6 +1010,180 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       return false;
     } finally {
       get().setLoading(`credits_${userId}`, false);
+    }
+  },
+
+  sendNotification: async (userId, title, message) => {
+    get().setLoading("notifications", true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("notifications")
+        .insert([{ user_id: userId, title, message, type: "admin_credit_adjustment" }]);
+      if (error) throw error;
+      toast.success("Notification sent.");
+      return true;
+    } catch (err: any) {
+      toast.error("Failed to send notification.");
+      return false;
+    } finally {
+      get().setLoading("notifications", false);
+    }
+  },
+  //endregion
+
+  //region ------------------- ANSWER MANAGEMENT -------------------
+  fetchAnswers: async (statusFilter, options) => {
+    const cacheKey = statusFilter ? `answers_${statusFilter}` : "answers";
+    const { answers, lastFetched } = get();
+    if (
+      !options?.force &&
+      answers &&
+      lastFetched[cacheKey] &&
+      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
+    ) {
+      return;
+    }
+    get().setLoading("answers", true);
+    try {
+      const supabase = createClient();
+      let query = supabase.from("answers").select(`
+        *,
+        subjects(*),
+        student:profiles!student_id(full_name),
+        assigned_faculty:profiles!assigned_faculty_id(full_name)
+      `);
+      if (statusFilter) {
+        query = query.eq("status", statusFilter);
+      }
+      const { data, error } = await query.order("submitted_at", {
+        ascending: false,
+      });
+      if (error) throw error;
+      set((state) => ({
+        answers: data as AdminAnswerView[],
+        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
+      }));
+    } catch (err: any) {
+      toast.error("Failed to fetch answersheets.");
+    } finally {
+      get().setLoading("answers", false);
+    }
+  },
+
+  fetchAnswerById: async (id) => {
+    get().setLoading("currentAnswer", true);
+    set({ currentAnswer: null });
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("answers")
+        .select(
+          `*, subjects(*), student:profiles!student_id(full_name), assigned_faculty:profiles!assigned_faculty_id(full_name)`
+        )
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+      set({ currentAnswer: data as AdminAnswerView });
+    } catch (err: any) {
+      toast.error("Failed to fetch answer details.");
+    } finally {
+      get().setLoading("currentAnswer", false);
+    }
+  },
+
+  reassignAnswer: async (answerId, facultyId) => {
+    get().setLoading(`answer_${answerId}`, true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("assign_answer_to_faculty", {
+        p_answer_id: answerId,
+        p_faculty_id: facultyId,
+      });
+      if (error) throw error;
+      toast.success("Answer reassigned successfully.");
+      get().fetchAnswers(undefined, { force: true });
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reassign answer.");
+      return false;
+    } finally {
+      get().setLoading(`answer_${answerId}`, false);
+    }
+  },
+
+  fetchOverdueAnswers: async () => {
+    get().setLoading("answers", true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("answers")
+        .select(
+          `*, student:profiles!student_id(full_name), assigned_faculty:profiles!assigned_faculty_id(full_name)`
+        )
+        .in("status", ["assigned", "in_evaluation"])
+        .lt("expected_completion_at", new Date().toISOString());
+      if (error) throw error;
+      set({ answers: data as AdminAnswerView[] });
+    } catch (err: any) {
+      toast.error("Failed to fetch deadline report.");
+    } finally {
+      get().setLoading("answers", false);
+    }
+  },
+  //endregion
+
+  //region ------------------- MENTORSHIP MANAGEMENT -------------------
+  fetchMentorshipSessions: async (options) => {
+    const cacheKey = "mentorshipSessions";
+    const { mentorshipSessions, lastFetched } = get();
+    if (
+      !options?.force &&
+      mentorshipSessions &&
+      lastFetched[cacheKey] &&
+      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
+    ) {
+      return;
+    }
+    get().setLoading(cacheKey, true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("mentorship_sessions")
+        .select(
+          `*, student:profiles!student_id(full_name), mentor:profiles!mentor_id(full_name)`
+        )
+        .order("requested_at", { ascending: false });
+      if (error) throw error;
+      set((state) => ({
+        mentorshipSessions: data as MentorshipSessionWithDetails[],
+        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
+      }));
+    } catch (err: any) {
+      toast.error("Failed to fetch mentorship sessions.");
+    } finally {
+      get().setLoading(cacheKey, false);
+    }
+  },
+
+  fetchMentorshipSessionById: async (sessionId) => {
+    get().setLoading("currentMentorshipSession", true);
+    set({ currentMentorshipSession: null });
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("mentorship_sessions")
+        .select(
+          `*, student:profiles!student_id(full_name), mentor:profiles!mentor_id(full_name)`
+        )
+        .eq("id", sessionId)
+        .single();
+      if (error) throw error;
+      set({ currentMentorshipSession: data as MentorshipSessionWithDetails });
+    } catch (err: any) {
+      toast.error("Failed to fetch session details.");
+    } finally {
+      get().setLoading("currentMentorshipSession", false);
     }
   },
 
@@ -1075,306 +1236,37 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       get().setLoading(`session_${sessionId}`, false);
     }
   },
+  //endregion
 
-  // --- NON-CACHED ACTIONS (for specific detail views or simple mutations) ---
-
-  // Caching is intentionally omitted for fetches that populate a singular,
-  // transient state like 'currentAnswer' or 'currentUser'.
-  fetchAnswerById: async (id) => {
-    get().setLoading("currentAnswer", true);
-    set({ currentAnswer: null });
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("answers")
-        .select(
-          `*, subjects(*), student:profiles!student_id(full_name), assigned_faculty:profiles!assigned_faculty_id(full_name)`
-        )
-        .eq("id", id)
-        .single();
-      if (error) throw error;
-      set({ currentAnswer: data as AdminAnswerView });
-    } catch (err: any) {
-      toast.error("Failed to fetch answer details.");
-    } finally {
-      get().setLoading("currentAnswer", false);
-    }
-  },
-
-  fetchUserById: async (id) => {
-    get().setLoading("currentUser", true);
-    set({ currentUser: null });
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", id)
-        .single();
-      if (error) throw error;
-      set({ currentUser: data as AdminProfile });
-    } catch (err: any) {
-      toast.error("Failed to fetch user details.");
-    } finally {
-      get().setLoading("currentUser", false);
-    }
-  },
-
-  fetchMentorshipSessionById: async (sessionId) => {
-    get().setLoading("currentMentorshipSession", true);
-    set({ currentMentorshipSession: null });
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("mentorship_sessions")
-        .select(
-          `*, student:profiles!student_id(full_name), mentor:profiles!mentor_id(full_name)`
-        )
-        .eq("id", sessionId)
-        .single();
-      if (error) throw error;
-      set({ currentMentorshipSession: data as MentorshipSessionWithDetails });
-    } catch (err: any) {
-      toast.error("Failed to fetch session details.");
-    } finally {
-      get().setLoading("currentMentorshipSession", false);
-    }
-  },
-
-  // Intentionally not cached as it's for a specific detail view
-  fetchUserSubscriptions: async (userId) => {
-    get().setLoading("userSubscriptions", true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .select("id, status, current_period_end, plans(name, price)")
-        .eq("user_id", userId);
-      if (error) throw error;
-      set({ userSubscriptions: data as UserSubscription[] });
-    } catch (err: any) {
-      toast.error("Failed to fetch user subscriptions.");
-    } finally {
-      get().setLoading("userSubscriptions", false);
-    }
-  },
-
-  // Intentionally not cached as it's for a specific detail view
-  fetchFacultyWorkloadById: async (id) => {
-    get().setLoading("facultyWorkload", true);
-    set({ facultyWorkload: null });
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("faculty_workload")
-        .select("*")
-        .eq("id", id)
-        .single();
-      if (error) throw error;
-      set({ facultyWorkload: data as FacultyWorkload });
-    } catch (err: any) {
-      if (err.code !== "PGRST116") {
-        // Ignore "0 rows" error
-        toast.error("Failed to fetch faculty workload.");
-      }
-    } finally {
-      get().setLoading("facultyWorkload", false);
-    }
-  },
-
-  // A special report; not cached to ensure it's always fresh
-  fetchOverdueAnswers: async () => {
-    get().setLoading("answers", true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("answers")
-        .select(
-          `*, student:profiles!student_id(full_name), assigned_faculty:profiles!assigned_faculty_id(full_name)`
-        )
-        .in("status", ["assigned", "in_evaluation"])
-        .lt("expected_completion_at", new Date().toISOString());
-      if (error) throw error;
-      set({ answers: data as AdminAnswerView[] });
-    } catch (err: any) {
-      toast.error("Failed to fetch deadline report.");
-    } finally {
-      get().setLoading("answers", false);
-    }
-  },
-
-  sendNotification: async (userId, title, message) => {
-    get().setLoading("notifications", true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("notifications")
-        .insert([
-          { user_id: userId, title, message, type: "admin_credit_adjustment" },
-        ]);
-      if (error) throw error;
-      toast.success("Notification sent.");
-      return true;
-    } catch (err: any) {
-      toast.error("Failed to send notification.");
-      return false;
-    } finally {
-      get().setLoading("notifications", false);
-    }
-  },
-  fetchSupportTickets: async (statusFilter, options) => {
-    const cacheKey = statusFilter
-      ? `supportTickets_${statusFilter}`
-      : "supportTickets";
-    const { supportTickets, lastFetched } = get();
+  //region ------------------- PLANS & SUBJECTS MANAGEMENT -------------------
+  fetchPlans: async (includeInactive = true, options) => {
+    const cacheKey = `plans_${includeInactive}`;
+    const { plans, lastFetched } = get();
     if (
       !options?.force &&
-      supportTickets &&
+      plans &&
       lastFetched[cacheKey] &&
       Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
     ) {
       return;
     }
-    get().setLoading(cacheKey, true);
+    get().setLoading("plans", true);
     try {
       const supabase = createClient();
-      let query = supabase.from("support_tickets").select(`
-        *,
-        user:profiles!user_id(full_name),
-        assignee:profiles!assigned_to(full_name)
-      `);
-      if (statusFilter) {
-        query = query.eq("status", statusFilter);
+      let query = supabase.from("plans").select("*");
+      if (!includeInactive) {
+        query = query.eq("is_active", true);
       }
-      const { data, error } = await query.order("last_reply_at", {
-        ascending: false,
-        nullsFirst: false,
-      });
+      const { data, error } = await query.order("price");
       if (error) throw error;
       set((state) => ({
-        supportTickets: data as SupportTicketWithDetails[],
+        plans: data as Plan[],
         lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
       }));
     } catch (err: any) {
-      toast.error("Failed to fetch support tickets.");
+      toast.error("Failed to fetch plans.");
     } finally {
-      get().setLoading(cacheKey, false);
-    }
-  },
-
-  fetchSupportTicketById: async (ticketId) => {
-    get().setLoading("currentSupportTicket", true);
-    set({ currentSupportTicket: null });
-    try {
-      const supabase = createClient();
-      // Fetch ticket, messages, and attachments in parallel
-      const [ticketRes, messagesRes, attachmentsRes] = await Promise.all([
-        supabase
-          .from("support_tickets")
-          .select(
-            "*, user:profiles!user_id(full_name), assignee:profiles!assigned_to(full_name)"
-          )
-          .eq("id", ticketId)
-          .single(),
-        supabase
-          .from("support_ticket_messages")
-          .select("*, sender:profiles!sender_id(full_name)")
-          .eq("ticket_id", ticketId)
-          .order("sent_at", { ascending: true }),
-        supabase
-          .from("support_ticket_attachments")
-          .select("*")
-          .eq("ticket_id", ticketId),
-      ]);
-
-      if (ticketRes.error) throw ticketRes.error;
-      if (messagesRes.error) throw messagesRes.error;
-      if (attachmentsRes.error) throw attachmentsRes.error;
-
-      set({
-        currentSupportTicket: {
-          ticket: ticketRes.data as SupportTicketWithDetails,
-          messages: messagesRes.data as SupportTicketMessage[],
-          attachments: attachmentsRes.data as SupportTicketAttachment[],
-        },
-      });
-    } catch (err: any) {
-      toast.error("Failed to fetch ticket details.");
-    } finally {
-      get().setLoading("currentSupportTicket", false);
-    }
-  },
-
-  updateSupportTicket: async (ticketId, updateData) => {
-    get().setLoading(`ticket_${ticketId}`, true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("support_tickets")
-        .update(updateData)
-        .eq("id", ticketId);
-      if (error) throw error;
-      toast.success("Ticket updated successfully.");
-      // Invalidate cache and refetch
-      get().fetchSupportTickets(undefined, { force: true });
-      // If we are viewing this ticket, refresh its data
-      if (get().currentSupportTicket?.ticket.id === ticketId) {
-        get().fetchSupportTicketById(ticketId);
-      }
-      return true;
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update ticket.");
-      return false;
-    } finally {
-      get().setLoading(`ticket_${ticketId}`, false);
-    }
-  },
-
-  addSupportTicketMessage: async (ticketId, message) => {
-    get().setLoading(`ticket_messages_${ticketId}`, true);
-    try {
-      const supabase = createClient();
-      // Get the current admin's user ID
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("You must be logged in to reply.");
-
-      const { error } = await supabase
-        .from("support_ticket_messages")
-        .insert([{ ticket_id: ticketId, sender_id: user.id, message }]);
-      if (error) throw error;
-
-      toast.success("Reply sent.");
-      // Refresh the current ticket view to show the new message
-      get().fetchSupportTicketById(ticketId);
-      // Refresh the main list as last_reply_at has changed
-      get().fetchSupportTickets(undefined, { force: true });
-      return true;
-    } catch (err: any) {
-      toast.error(err.message || "Failed to send reply.");
-      return false;
-    } finally {
-      get().setLoading(`ticket_messages_${ticketId}`, false);
-    }
-  },
-  // Add new functions
-  fetchPlanPurchaseStats: async (options) => {
-    const cacheKey = "planPurchaseStats";
-    // ... caching logic ...
-    get().setLoading(cacheKey, true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase.rpc("get_plan_purchase_stats");
-      if (error) throw error;
-      set((state) => ({
-        planPurchaseStats: data,
-        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
-      }));
-    } catch (err: any) {
-      toast.error("Failed to fetch plan purchase stats.");
-    } finally {
-      get().setLoading(cacheKey, false);
+      get().setLoading("plans", false);
     }
   },
 
@@ -1397,6 +1289,43 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
 
+  createPlan: async (data) => {
+    get().setLoading("plans", true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from("plans").insert([data]);
+      if (error) throw error;
+      toast.success("Plan created successfully.");
+      get().fetchPlans(true, { force: true });
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create plan.");
+      return false;
+    } finally {
+      get().setLoading("plans", false);
+    }
+  },
+
+  updatePlan: async (planId, data) => {
+    get().setLoading("plans", true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("plans")
+        .update(data)
+        .eq("id", planId);
+      if (error) throw error;
+      toast.success("Plan updated successfully.");
+      get().fetchPlans(true, { force: true });
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update plan.");
+      return false;
+    } finally {
+      get().setLoading("plans", false);
+    }
+  },
+
   deletePlan: async (planId) => {
     if (
       !confirm(
@@ -1410,8 +1339,8 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       const { error } = await supabase.from("plans").delete().eq("id", planId);
       if (error) throw error;
       toast.success("Plan deleted successfully.");
-      get().fetchPlans(true, { force: true }); // Force refresh the list
-      get().fetchPlanPurchaseStats({ force: true }); // Force refresh the chart
+      get().fetchPlans(true, { force: true });
+      get().fetchPlanPurchaseStats({ force: true });
       return true;
     } catch (err: any) {
       toast.error(err.message || "Failed to delete plan.");
@@ -1459,7 +1388,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       const { error } = await supabase.from("subjects").insert([data]);
       if (error) throw error;
       toast.success("Subject created successfully.");
-      get().fetchSubjects({ force: true }); // Refresh list
+      get().fetchSubjects({ force: true });
       return true;
     } catch (err) {
       toast.error("Failed to create subject.");
@@ -1480,7 +1409,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
       if (error) throw error;
       toast.success("Subject updated successfully.");
-      get().fetchSubjects({ force: true }); // Refresh list
+      get().fetchSubjects({ force: true });
       return true;
     } catch (err) {
       toast.error("Failed to update subject.");
@@ -1504,7 +1433,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
       if (error) throw error;
       toast.success("Subject deleted successfully.");
-      get().fetchSubjects({ force: true }); // Refresh list
+      get().fetchSubjects({ force: true });
       return true;
     } catch (err) {
       toast.error("Failed to delete subject. It may be in use.");
@@ -1513,34 +1442,9 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       get().setLoading(`subject_${subjectId}`, false);
     }
   },
+  //endregion
 
-  fetchCreditEconomyTrends: async (options) => {
-    const cacheKey = "creditEconomyTrends";
-    const { creditEconomyTrends, lastFetched } = get();
-    if (
-      !options?.force &&
-      creditEconomyTrends &&
-      lastFetched[cacheKey] &&
-      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
-    ) {
-      return;
-    }
-    get().setLoading(cacheKey, true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase.rpc("get_credit_economy_trends");
-      if (error) throw error;
-      set((state) => ({
-        creditEconomyTrends: data,
-        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
-      }));
-    } catch (err: any) {
-      toast.error("Failed to fetch credit economy trends.");
-    } finally {
-      get().setLoading(cacheKey, false);
-    }
-  },
-
+  //region ------------------- FINANCIAL & LOGS -------------------
   fetchPaginatedOrders: async (page, pageSize, filters) => {
     get().setLoading("paginatedOrders", true);
     try {
@@ -1571,9 +1475,44 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       });
     } catch (err: any) {
       toast.error("Failed to fetch orders.");
-      set({ paginatedOrders: { data: [], count: 0 } }); // Clear on error
+      set({ paginatedOrders: { data: [], count: 0 } });
     } finally {
       get().setLoading("paginatedOrders", false);
+    }
+  },
+
+  fetchOrderById: async (orderId) => {
+    get().setLoading("currentOrder", true);
+    set({ currentOrder: null });
+    try {
+      const supabase = createClient();
+      const [orderPromise, transactionsPromise] = await Promise.all([
+        supabase
+          .from("orders")
+          .select("*, user:profiles(full_name), plan:plans(name)")
+          .eq("id", orderId)
+          .single(),
+        supabase
+          .from("credit_transactions")
+          .select("*")
+          .eq("reference_id", orderId)
+          .eq("reference_type", "order"),
+      ]);
+
+      if (orderPromise.error) throw orderPromise.error;
+      if (transactionsPromise.error) throw transactionsPromise.error;
+
+      const combinedData = {
+        ...orderPromise.data,
+        credit_transactions: transactionsPromise.data,
+      };
+
+      set({ currentOrder: combinedData as OrderWithAllDetails });
+    } catch (err: any) {
+      console.error("Error fetching order details:", err);
+      toast.error("Failed to fetch order details.");
+    } finally {
+      get().setLoading("currentOrder", false);
     }
   },
 
@@ -1611,123 +1550,198 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
 
-  fetchOrderById: async (orderId) => {
-    get().setLoading("currentOrder", true);
-    set({ currentOrder: null });
+  fetchCreditLogs: async (limit = 100, options) => {
+    const cacheKey = "creditLogs";
+    const { creditLogs, lastFetched } = get();
+    if (
+      !options?.force &&
+      creditLogs &&
+      lastFetched[cacheKey] &&
+      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
+    ) {
+      return;
+    }
+    get().setLoading(cacheKey, true);
     try {
       const supabase = createClient();
+      const { data, error } = await supabase
+        .from("credit_transactions")
+        .select("*, user:profiles(full_name)")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      set((state) => ({
+        creditLogs: data as CreditTransaction[],
+        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
+      }));
+    } catch (err: any) {
+      toast.error("Failed to fetch credit logs.");
+    } finally {
+      get().setLoading(cacheKey, false);
+    }
+  },
 
-      // We will run two queries in parallel for performance
-      const [orderPromise, transactionsPromise] = await Promise.all([
-        // Query 1: Get the main order details
+  fetchLogs: async (options) => {
+    const cacheKey = "logs";
+    const { logs, lastFetched } = get();
+    if (
+      !options?.force &&
+      logs &&
+      lastFetched[cacheKey] &&
+      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
+    ) {
+      return;
+    }
+    get().setLoading(cacheKey, true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("audit_log")
+        .select("*, actor:profiles(full_name)")
+        .order("timestamp", { ascending: false });
+
+      if (error) throw error;
+
+      set((state) => ({
+        logs: data as AuditLogWithActor[],
+        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
+      }));
+    } catch (err: any) {
+      toast.error("Failed to fetch audit logs.");
+    } finally {
+      get().setLoading(cacheKey, false);
+    }
+  },
+  //endregion
+
+  //region ------------------- SUPPORT SYSTEM -------------------
+  fetchSupportTickets: async (statusFilter, options) => {
+    const cacheKey = statusFilter ? `supportTickets_${statusFilter}` : "supportTickets";
+    const { supportTickets, lastFetched } = get();
+    if (
+      !options?.force &&
+      supportTickets &&
+      lastFetched[cacheKey] &&
+      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
+    ) {
+      return;
+    }
+    get().setLoading(cacheKey, true);
+    try {
+      const supabase = createClient();
+      let query = supabase.from("support_tickets").select(`
+        *,
+        user:profiles!user_id(full_name),
+        assignee:profiles!assigned_to(full_name)
+      `);
+      if (statusFilter) {
+        query = query.eq("status", statusFilter);
+      }
+      const { data, error } = await query.order("last_reply_at", {
+        ascending: false,
+        nullsFirst: false,
+      });
+      if (error) throw error;
+      set((state) => ({
+        supportTickets: data as SupportTicketWithDetails[],
+        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
+      }));
+    } catch (err: any) {
+      toast.error("Failed to fetch support tickets.");
+    } finally {
+      get().setLoading(cacheKey, false);
+    }
+  },
+
+  fetchSupportTicketById: async (ticketId) => {
+    get().setLoading("currentSupportTicket", true);
+    set({ currentSupportTicket: null });
+    try {
+      const supabase = createClient();
+      const [ticketRes, messagesRes, attachmentsRes] = await Promise.all([
         supabase
-          .from("orders")
-          .select("*, user:profiles(full_name), plan:plans(name)")
-          .eq("id", orderId)
+          .from("support_tickets")
+          .select(
+            "*, user:profiles!user_id(full_name), assignee:profiles!assigned_to(full_name)"
+          )
+          .eq("id", ticketId)
           .single(),
-
-        // Query 2: Get all credit transactions that reference this order
         supabase
-          .from("credit_transactions")
+          .from("support_ticket_messages")
+          .select("*, sender:profiles!sender_id(full_name)")
+          .eq("ticket_id", ticketId)
+          .order("sent_at", { ascending: true }),
+        supabase
+          .from("support_ticket_attachments")
           .select("*")
-          .eq("reference_id", orderId)
-          .eq("reference_type", "order"),
+          .eq("ticket_id", ticketId),
       ]);
 
-      // Check for errors in both queries
-      if (orderPromise.error) throw orderPromise.error;
-      if (transactionsPromise.error) throw transactionsPromise.error;
+      if (ticketRes.error) throw ticketRes.error;
+      if (messagesRes.error) throw messagesRes.error;
+      if (attachmentsRes.error) throw attachmentsRes.error;
 
-      // Combine the results into a single object
-      const combinedData = {
-        ...orderPromise.data,
-        credit_transactions: transactionsPromise.data,
-      };
-
-      set({ currentOrder: combinedData as OrderWithAllDetails });
+      set({
+        currentSupportTicket: {
+          ticket: ticketRes.data as SupportTicketWithDetails,
+          messages: messagesRes.data as SupportTicketMessage[],
+          attachments: attachmentsRes.data as SupportTicketAttachment[],
+        },
+      });
     } catch (err: any) {
-      console.error("Error fetching order details:", err);
-      toast.error("Failed to fetch order details.");
+      toast.error("Failed to fetch ticket details.");
     } finally {
-      get().setLoading("currentOrder", false);
+      get().setLoading("currentSupportTicket", false);
     }
   },
-  fetchReports: async () => {
-    get().setLoading("reports", true);
+
+  updateSupportTicket: async (ticketId, updateData) => {
+    get().setLoading(`ticket_${ticketId}`, true);
     try {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("reports")
-        .select("*")
-        .order("generated_at", { ascending: false });
+      const { error } = await supabase
+        .from("support_tickets")
+        .update(updateData)
+        .eq("id", ticketId);
       if (error) throw error;
-      set({ reports: data });
-    } catch (err) {
-      toast.error("Failed to fetch reports.");
-    } finally {
-      get().setLoading("reports", false);
-    }
-  },
-
-  fetchReportById: async (reportId) => {
-    get().setLoading("currentReport", true);
-    set({ currentReport: null });
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("reports")
-        .select("*")
-        .eq("id", reportId)
-        .single();
-      if (error) throw error;
-      set({ currentReport: data });
-    } catch (err) {
-      toast.error("Failed to fetch report.");
-    } finally {
-      get().setLoading("currentReport", false);
-    }
-  },
-
-  generateReport: async (name, parameters) => {
-    get().setLoading("reports", true);
-    try {
-      const supabase = createClient();
-      // 1. Generate the data using the RPC function
-      const { data: reportData, error: rpcError } = await supabase.rpc(
-        "generate_report_data",
-        { params: parameters }
-      );
-      if (rpcError) throw rpcError;
-
-      // 2. Insert the new report with the generated data
-      const { data: newReport, error: insertError } = await supabase
-        .from("reports")
-        .insert({
-          name,
-          parameters,
-          data: reportData,
-        })
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-
-      toast.success("Report generated successfully!");
-      get().fetchReports(); // Refresh the list
-      return newReport;
+      toast.success("Ticket updated successfully.");
+      get().fetchSupportTickets(undefined, { force: true });
+      if (get().currentSupportTicket?.ticket.id === ticketId) {
+        get().fetchSupportTicketById(ticketId);
+      }
+      return true;
     } catch (err: any) {
-      toast.error(err.message || "Failed to generate report.");
-      return null;
+      toast.error(err.message || "Failed to update ticket.");
+      return false;
     } finally {
-      get().setLoading("reports", false);
+      get().setLoading(`ticket_${ticketId}`, false);
     }
   },
 
-  clearCurrentPlan: () => set({ currentPlan: null }),
+  addSupportTicketMessage: async (ticketId, message) => {
+    get().setLoading(`ticket_messages_${ticketId}`, true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("You must be logged in to reply.");
 
-  // --- HELPER ACTIONS (no API calls) ---
-  clearCurrentAnswer: () => set({ currentAnswer: null }),
-  clearCurrentUser: () => set({ currentUser: null }),
-  clearCurrentMentorshipSession: () => set({ currentMentorshipSession: null }),
-  clearCurrentSupportTicket: () => set({ currentSupportTicket: null }),
+      const { error } = await supabase
+        .from("support_ticket_messages")
+        .insert([{ ticket_id: ticketId, sender_id: user.id, message }]);
+      if (error) throw error;
+
+      toast.success("Reply sent.");
+      get().fetchSupportTicketById(ticketId);
+      get().fetchSupportTickets(undefined, { force: true });
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send reply.");
+      return false;
+    } finally {
+      get().setLoading(`ticket_messages_${ticketId}`, false);
+    }
+  },
+  //endregion
 }));

@@ -13,13 +13,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Switch } from "@/components/ui/switch";
-import { ChevronLeft, Trash2, Activity, BarChart, CreditCard, Calendar, Info, Briefcase } from 'lucide-react';
+import { ChevronLeft, Trash2, BarChart, CreditCard, Info, Briefcase, KeyRound } from 'lucide-react';
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 
-// ✅ EXPANDED SCHEMA: Added new editable fields
+// Schema for the main profile form
 const profileFormSchema = z.object({
   full_name: z.string().min(2, "Name is required."),
   phone_number: z.string().optional(),
@@ -32,12 +32,12 @@ export default function UserDetailPage() {
   const params = useParams();
   const id = params?.id as string;
   const router = useRouter();
-  const { 
-    currentUser, 
+  const {
+    currentUser,
     facultyWorkload,
-    loading, 
-    fetchUserById, 
-    clearCurrentUser, 
+    loading,
+    fetchUserById,
+    clearCurrentUser,
     updateProfile,
     deleteUser,
     fetchFacultyWorkloadById,
@@ -54,16 +54,14 @@ export default function UserDetailPage() {
     },
   });
 
-  // ✅ FIX: The useCallback hook is moved here, before any conditional returns.
   const handleDataUpdate = React.useCallback(() => {
     if (id) {
       fetchUserById(id);
     }
   }, [id, fetchUserById]);
 
-  // --- All effects follow the hooks ---
   React.useEffect(() => {
-    handleDataUpdate(); // Initial fetch
+    handleDataUpdate();
     return () => { clearCurrentUser(); };
   }, [id, handleDataUpdate, clearCurrentUser]);
 
@@ -84,15 +82,14 @@ export default function UserDetailPage() {
   }, [currentUser, form, fetchFacultyWorkloadById, id]);
 
 
-  // --- All event handlers follow the effects ---
   async function onSubmit(data: z.infer<typeof profileFormSchema>) {
     const success = await updateProfile(id, data);
     if (success) {
       toast.success("Profile updated!");
-      handleDataUpdate(); // Re-fetch to get latest data
+      handleDataUpdate();
     }
   }
-  
+
   async function handleDelete() {
     const success = await deleteUser(id);
     if (success) {
@@ -101,7 +98,6 @@ export default function UserDetailPage() {
     }
   }
 
-  // --- The conditional return is last, before the main JSX ---
   if (loading.currentUser || !currentUser) {
     return <UserDetailSkeleton />;
   }
@@ -115,7 +111,7 @@ export default function UserDetailPage() {
             <p className="text-muted-foreground text-sm">ID: {currentUser.id}</p>
          </div>
       </div>
-      
+
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left Column: Edit Form */}
         <div className="lg:col-span-2">
@@ -150,7 +146,6 @@ export default function UserDetailPage() {
 
         {/* Right Column: Stats & Info */}
         <div className="lg:col-span-1 space-y-6">
-            {/* ✅ CONDITIONAL CARD: Show only for Students */}
             {currentUser.role === 'student' && (
               <>
                 <Card>
@@ -165,7 +160,6 @@ export default function UserDetailPage() {
                 </>
             )}
 
-            {/* ✅ CONDITIONAL CARD: Show only for Faculty */}
             {currentUser.role === 'faculty' && (
                 <Card>
                     <CardHeader className="flex flex-row items-center gap-2"><Briefcase className="w-5 h-5 text-muted-foreground"/><CardTitle>Workload & Capacity</CardTitle></CardHeader>
@@ -188,7 +182,7 @@ export default function UserDetailPage() {
                     </CardContent>
                 </Card>
             )}
-            
+
             <Card>
                 <CardHeader className="flex flex-row items-center gap-2"><BarChart className="w-5 h-5 text-muted-foreground"/><CardTitle>Activity Stats</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">
@@ -203,6 +197,9 @@ export default function UserDetailPage() {
                    <div className="flex justify-between"><span>Last Activity:</span><span className="font-bold">{currentUser.last_activity_at ? format(new Date(currentUser.last_activity_at), "dd MMM yyyy") : 'N/A'}</span></div>
                 </CardContent>
             </Card>
+
+            <ChangePasswordCard userId={id} />
+
              <Card>
                 <CardHeader><CardTitle className="text-destructive">Danger Zone</CardTitle></CardHeader>
                 <CardContent>
@@ -216,7 +213,7 @@ export default function UserDetailPage() {
   );
 }
 
-// A dedicated skeleton component for the detail page
+// Skeleton component remains unchanged
 function UserDetailSkeleton() {
     return (
         <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
@@ -243,24 +240,26 @@ function UserDetailSkeleton() {
 }
 
 // =============================================================================
-// NEW COMPONENT: Adjust Credits Card
+// ADJUST CREDITS COMPONENT (MODIFIED)
 // =============================================================================
 
 const creditAdjustmentSchema = z.object({
   creditType: z.enum(["gs", "specialized", "mentorship"]),
-  // ✅ FIX: The schema is now simpler. It expects a number directly.
+  // ✅ FIX: Removed z.coerce and now using z.number()
   amount: z.number()
     .int("Amount must be a whole number.")
     .refine((n) => n !== 0, { message: "Amount cannot be zero." }),
   reason: z.string().min(5, "A reason of at least 5 characters is required."),
 });
+
 function AdjustCreditsCard({ userId, onUpdate }: { userId: string, onUpdate: () => void }) {
   const { adjustUserCredits } = useAdminStore();
 
   const form = useForm<z.infer<typeof creditAdjustmentSchema>>({
     resolver: zodResolver(creditAdjustmentSchema),
     defaultValues: {
-      amount: 1,
+      creditType: "gs",
+      amount: 0,
       reason: "",
     },
   });
@@ -269,8 +268,8 @@ function AdjustCreditsCard({ userId, onUpdate }: { userId: string, onUpdate: () 
     const success = await adjustUserCredits(userId, data.creditType, data.amount, data.reason);
     if (success) {
       toast.success("Credits adjusted successfully!");
-      form.reset(); // Clear the form
-      onUpdate(); // Trigger a data refresh on the parent page
+      form.reset();
+      onUpdate();
     }
   }
 
@@ -283,56 +282,91 @@ function AdjustCreditsCard({ userId, onUpdate }: { userId: string, onUpdate: () 
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="creditType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Credit Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a type..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="gs">GS Credits</SelectItem>
-                      <SelectItem value="specialized">Specialized Credits</SelectItem>
-                      <SelectItem value="mentorship">Mentorship Credits</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="amount"
-              render={({ field }) => (
+            <FormField control={form.control} name="creditType" render={({ field }) => (
+                <FormItem><FormLabel>Credit Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a type..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="gs">GS Credits</SelectItem><SelectItem value="specialized">Specialized Credits</SelectItem><SelectItem value="mentorship">Mentorship Credits</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+            )}/>
+            <FormField control={form.control} name="amount" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Amount</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="e.g., 10 or -5" {...field} />
+                    {/* ✅ FIX: Added onChange to manually parse the value to a number */}
+                    <Input
+                      type="number"
+                      placeholder="e.g., 10 or -5"
+                      {...field}
+                      onChange={event => field.onChange(parseInt(event.target.value, 10) || 0)}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-             <FormField
+             <FormField control={form.control} name="reason" render={({ field }) => (
+                <FormItem><FormLabel>Reason</FormLabel><FormControl><Input placeholder="e.g., Bonus for referral" {...field} /></FormControl><FormMessage /></FormItem>
+            )}/>
+            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                Adjust Balance
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+}
+
+// =============================================================================
+// CHANGE PASSWORD COMPONENT (Unchanged)
+// =============================================================================
+
+const passwordChangeSchema = z.object({
+  new_password: z.string().min(8, "Password must be at least 8 characters long."),
+});
+
+function ChangePasswordCard({ userId }: { userId: string }) {
+  const { changePassword } = useAdminStore();
+
+  const form = useForm<z.infer<typeof passwordChangeSchema>>({
+    resolver: zodResolver(passwordChangeSchema),
+    defaultValues: {
+      new_password: "",
+    },
+  });
+
+  async function onSubmit(data: z.infer<typeof passwordChangeSchema>) {
+    const success = await changePassword(userId, data.new_password);
+    if (success) {
+      toast.success("Password updated successfully!");
+      form.reset();
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+            <KeyRound className="w-5 h-5 text-muted-foreground" />
+            <span>Change Password</span>
+        </CardTitle>
+        <CardDescription>Set a new password for this user's account.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
               control={form.control}
-              name="reason"
+              name="new_password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Reason</FormLabel>
+                  <FormLabel>New Password</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Bonus for referral" {...field} />
+                    <Input type="password" placeholder="••••••••" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                Adjust Balance
+              Update Password
             </Button>
           </form>
         </Form>
