@@ -88,7 +88,7 @@ export function RecentAnswersTable({ answers }: RecentAnswersTableProps) {
               When you submit your first answer, it will appear here.
             </p>
             <Button asChild>
-              <Link href="/student/answers/submit">Submit an Answer</Link>
+              <Link href="/student/answersheet">Submit an Answer</Link>
             </Button>
           </div>
         )}

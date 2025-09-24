@@ -73,7 +73,7 @@ export default function AuthCallback() {
           toast.success('Profile created successfully!')
           // Small delay to ensure auth store is updated
           setTimeout(() => {
-            router.push('/student')
+            router.push('/student/dashboard')
           }, 100)
           return
         }
@@ -87,9 +87,9 @@ export default function AuthCallback() {
 
         // Profile exists, redirect based on role
         const role = profile?.role ?? 'student'
-        let redirectUrl = '/student'
-        if (role === 'admin') redirectUrl = '/admin'
-        else if (role === 'faculty') redirectUrl = '/faculty'
+        let redirectUrl = '/student/dashboard'
+        if (role === 'admin') redirectUrl = '/admin/dashboard'
+        else if (role === 'faculty') redirectUrl = '/faculty/dashboard'
 
         // Manually update auth store
         useAuthStore.setState({ user: session.user, profile, loading: false, error: null })
