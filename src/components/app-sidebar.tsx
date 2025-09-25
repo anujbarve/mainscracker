@@ -93,9 +93,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           ],
         },
       ]
-      const navSecondary: NavItem[] = [
-        { title: "Help", url: `${basePath}/help`, icon: IconHelp },
-      ]
+      const navSecondary: NavItem[] = []
     return { navMain, documents: [], navSecondary }
     }
 
@@ -189,7 +187,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents}></NavDocuments>
+        {data.documents.length === 0 ? <div></div> : <NavDocuments items={data.documents}></NavDocuments>}
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
