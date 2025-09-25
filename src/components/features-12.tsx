@@ -123,3 +123,115 @@ export default function Features() {
         </section>
     )
 }
+
+// new version but experimental 
+
+// 'use client'
+
+// import React from 'react'
+// import { BentoGrid, BentoGridItem } from '@/components/ui/bento-grid'
+// import { TextGenerateEffect } from '@/components/ui/text-generate-effect'
+// import { Clock, ClipboardList, UserCheck, BarChart3 } from 'lucide-react'
+// import Image from 'next/image'
+// import { BorderBeam } from '@/components/magicui/border-beam'
+// import { cn } from '@/lib/utils'
+
+// // Reusable Image Card component with the FIX
+// const ImageCard = ({
+//     src,
+//     alt,
+//     className,
+//     beam = false,
+// }: {
+//     src: string
+//     alt: string
+//     className?: string
+//     beam?: boolean
+// }) => (
+//     <div
+//         className={cn(
+//             // FIX #1: Added aspect-video to enforce a 16:9 aspect ratio
+//             'relative flex size-full min-h-[6rem] items-center justify-center overflow-hidden rounded-xl aspect-video',
+//             className
+//         )}
+//     >
+//         <Image
+//             src={src}
+//             width={1207}
+//             height={929}
+//             // FIX #2: Changed object-left-top to object-center for better cropping behavior
+//             className="size-full rounded-xl object-cover object-center transition duration-200 group-hover/bento:scale-105"
+//             alt={alt}
+//         />
+//         {beam && (
+//             <BorderBeam
+//                 duration={8}
+//                 size={250}
+//                 delay={2}
+//                 className="from-transparent via-yellow-700 to-transparent dark:via-white/50"
+//             />
+//         )}
+//     </div>
+// )
+
+// export default function Features() {
+//     return (
+//         <section id="features" className="relative py-12 md:py-20 lg:py-20">
+//             <div className="bg-linear-to-b dark:to-[color-mix(in_oklab,var(--color-zinc-900)_75%,var(--color-background))] absolute inset-0 -z-10 sm:inset-6 sm:rounded-b-3xl" />
+//             <div className="mx-auto max-w-3xl space-y-4 px-6 text-center">
+//                 <TextGenerateEffect
+//                     words="A smarter way to prepare for the UPSC."
+//                     className="text-balance text-4xl font-semibold lg:text-6xl"
+//                 />
+//                 <p className="text-zinc-600 dark:text-zinc-400">
+//                     Our platform is built from the ground up with powerful, intuitive features designed to accelerate your learning and evaluation cycle.
+//                 </p>
+//             </div>
+//             <div className="mt-16">
+//                 <BentoGrid className="mx-auto max-w-4xl">
+//                     {items.map((item, i) => (
+//                         <BentoGridItem
+//                             key={i}
+//                             title={item.title}
+//                             description={item.description}
+//                             header={item.header}
+//                             icon={item.icon}
+//                             className={item.className}
+//                         />
+//                     ))}
+//                 </BentoGrid>
+//             </div>
+//         </section>
+//     )
+// }
+
+// const items = [
+//     {
+//         title: 'Rapid Paper Evaluation',
+//         description: 'Get your answers evaluated by faculty within 24-48 hours, not weeks.',
+//         header: <ImageCard src="/images/features/evaluation.png" alt="Fast answer sheet evaluation" />,
+//         icon: <Clock className="h-4 w-4 text-neutral-500" />,
+//         className: 'md:col-span-1',
+//     },
+//     {
+//         title: 'Minimalist Student Dashboard',
+//         description: 'Upload papers, track submissions, and view results in a clean, focused interface.',
+//         header: <ImageCard src="/images/features/student_dashboard.png" alt="Easy test submission dashboard" />,
+//         icon: <ClipboardList className="h-4 w-4 text-neutral-500" />,
+//         className: 'md:col-span-1',
+//     },
+//     {
+//         title: 'Efficient Faculty Tools',
+//         description: 'An intuitive interface for faculty to manage evaluations and provide detailed feedback.',
+//         header: <ImageCard src="/images/features/faculty.png" alt="Faculty evaluation tools" />,
+//         icon: <UserCheck className="h-4 w-4 text-neutral-500" />,
+//         className: 'md:col-span-1',
+//     },
+//     {
+//         title: 'In-Depth Performance Analytics',
+//         description: 'Visual reports to identify strengths, weaknesses, and track progress over time.',
+//         header: <ImageCard src="/images/features/analytics.png" alt="Student feedback and progress analytics" beam />,
+//         icon: <BarChart3 className="h-4 w-4 text-neutral-500" />,
+//         className: 'md:col-span-3',
+//     },
+// ]

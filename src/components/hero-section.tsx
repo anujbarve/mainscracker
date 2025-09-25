@@ -108,3 +108,102 @@ export default function HeroSection() {
         </main>
     )
 }
+
+// new version but experimental
+
+// 'use client'
+
+// import Link from 'next/link'
+// import { Button } from '@/components/ui/button'
+// import { ChevronRight } from 'lucide-react'
+// import Image from 'next/image'
+// import { useAuthStore } from '@/stores/auth'
+// import { useEffect } from 'react'
+// import { TextGenerateEffect } from '@/components/ui/text-generate-effect'
+// import { motion } from 'framer-motion'
+
+// export default function HeroSection() {
+//     const { user, profile, fetchUser } = useAuthStore()
+
+//     useEffect(() => {
+//         fetchUser()
+//     }, [fetchUser])
+
+//     const getButtonPath = () => {
+//         if (!user || !profile) return '/login'
+//         switch (profile.role) {
+//             case 'student': return '/student/answersheet'
+//             case 'admin': return '/admin/dashboard'
+//             case 'faculty': return '/faculty/dashboard'
+//             default: return '/login'
+//         }
+//     }
+
+//     const submitAnswerPath = getButtonPath()
+
+//     return (
+//         <section className="relative w-full h-screen overflow-hidden">
+//             {/* Grid Background */}
+//             <div className="absolute inset-0 h-full w-full bg-background bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:36px_36px]"></div>
+            
+//             <div className="relative z-10 flex h-full items-center">
+//                 <div className="mx-auto max-w-6xl px-6">
+//                     <div className="grid md:grid-cols-2 items-center gap-12">
+//                         {/* Left Content */}
+//                         <div className="max-w-xl">
+//                             <TextGenerateEffect
+//                                 words="Preparing for UPSC Mains?"
+//                                 className="text-5xl font-semibold md:text-6xl text-balance"
+//                             />
+//                             <motion.p 
+//                                 initial={{ opacity: 0, y: 20 }}
+//                                 animate={{ opacity: 1, y: 0 }}
+//                                 transition={{ duration: 0.5, delay: 0.8 }}
+//                                 className="text-muted-foreground my-8 text-balance text-lg"
+//                             >
+//                                 Submit your answers, get expert evaluation in fixed time,
+//                                 and track progress using our simple credit system. Prepare smarter, not harder.
+//                             </motion.p>
+//                             <motion.div
+//                                 initial={{ opacity: 0, y: 20 }}
+//                                 animate={{ opacity: 1, y: 0 }}
+//                                 transition={{ duration: 0.5, delay: 1 }} 
+//                                 className="flex items-center gap-4"
+//                             >
+//                                 <Button asChild size="lg" className="group">
+//                                     <Link href={submitAnswerPath}>
+//                                         Submit your answers
+//                                         <ChevronRight className="ml-1 size-5 transition-transform duration-300 group-hover:translate-x-1" />
+//                                     </Link>
+//                                 </Button>
+//                                 <Button asChild size="lg" variant="outline">
+//                                     <Link href="#features">See How It Works</Link>
+//                                 </Button>
+//                             </motion.div>
+//                         </div>
+
+//                         {/* Right Content - Image */}
+//                         <motion.div 
+//                             initial={{ opacity: 0, scale: 0.9, x: 50 }}
+//                             animate={{ opacity: 1, scale: 1, x: 0 }}
+//                             transition={{ duration: 0.8, ease: "easeOut", delay: 0.4 }}
+//                             className="hidden md:block"
+//                         >
+//                             <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-primary/10">
+//                                 <Image
+//                                     src="/images/hero.jpg"
+//                                     alt="Mock Evaluation Dashboard"
+//                                     width={1200}
+//                                     height={821}
+//                                     priority
+//                                     className="object-cover"
+//                                 />
+//                                 <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent"></div>
+//                             </div>
+//                         </motion.div>
+//                     </div>
+//                 </div>
+//             </div>
+//         </section>
+//     )
+// }
