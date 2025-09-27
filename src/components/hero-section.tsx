@@ -120,7 +120,7 @@ export default function HeroSection() {
                     </Link>
                 </Button>
                 <Button asChild size="lg" variant="outline">
-                    <Link href="#features">See How It Works</Link>
+                    <Link href="/blog">See How It Works</Link>
                 </Button>
             </div>
         </motion.div>
