@@ -1,0 +1,13 @@
+# Block crawlers from admin, faculty, and student sections
+User-agent: *
+Disallow: /admin/
+Disallow: /faculty/
+Disallow: /student/
+Disallow: /auth/
+Disallow: /_not-found/
+
+# Allow crawlers to access all other public content
+Allow: /
+
+# Location of the sitemap
+Sitemap: https://mainscracker.com/sitemap.xml
