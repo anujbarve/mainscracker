@@ -1,122 +1,114 @@
 'use client'
 
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import { Clock, ClipboardList, UserCheck, BarChart3 } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Clock, ClipboardList, UserCheck, BarChart3 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { TextGenerateEffect } from '@/components/ui/text-generate-effect'
 import { BorderBeam } from '@/components/magicui/border-beam'
+import { useHomepageStore, type Feature } from '@/stores/homepage'
 
+// Icon mapping to convert string names from the DB to actual components
+const iconMap: Record<string, React.ReactNode> = {
+    Clock: <Clock className="size-6" />,
+    ClipboardList: <ClipboardList className="size-6" />,
+    UserCheck: <UserCheck className="size-6" />,
+    BarChart3: <BarChart3 className="size-6" />,
+}
+
+// The main component for the features section
 export default function Features() {
-    type ImageKey = 'item-1' | 'item-2' | 'item-3' | 'item-4'
-    const [activeItem, setActiveItem] = useState<ImageKey>('item-1')
+    const { data: homepageData, fetchHomepageData } = useHomepageStore()
+    const features = homepageData?.features || []
 
-    const images = {
-        'item-1': {
-            image: '/images/features/evaluation.png',
-            alt: 'Fast answer sheet evaluation',
-        },
-        'item-2': {
-            image: '/images/features/student_dashboard.png',
-            alt: 'Easy test submission dashboard',
-        },
-        'item-3': {
-            image: '/images/features/faculty.png',
-            alt: 'Faculty evaluation tools',
-        },
-        'item-4': {
-            image: '/images/features/analytics.png',
-            alt: 'Student feedback and progress analytics',
-        },
+    const [activeFeature, setActiveFeature] = useState<Feature | null>(null)
+    const [userInteracted, setUserInteracted] = useState(false)
+
+    // Fetch data on mount
+    useEffect(() => {
+        fetchHomepageData()
+    }, [fetchHomepageData])
+
+    // Set the initial active feature once data is loaded
+    useEffect(() => {
+        if (features.length > 0 && !activeFeature) {
+            setActiveFeature(features[0])
+        }
+    }, [features, activeFeature])
+
+    // Auto-cycle through features until the user interacts
+    useEffect(() => {
+        if (userInteracted || !activeFeature || features.length <= 1) return
+
+        const interval = setInterval(() => {
+            const currentIndex = features.findIndex((f) => f.id === activeFeature.id)
+            const nextIndex = (currentIndex + 1) % features.length
+            setActiveFeature(features[nextIndex])
+        }, 5000)
+
+        return () => clearInterval(interval)
+    }, [activeFeature, userInteracted, features])
+
+    const handleFeatureClick = (feature: Feature) => {
+        setUserInteracted(true)
+        setActiveFeature(feature)
+    }
+
+    // Don't render the component if there's no data
+    if (!features.length && !homepageData) {
+        // You can add a skeleton loader here if you prefer
+        return null
     }
 
     return (
-        <section id='features' className="py-12 md:py-20 lg:py-32">
-            <div className="bg-linear-to-b absolute inset-0 -z-10 sm:inset-6 sm:rounded-b-3xl dark:block dark:to-[color-mix(in_oklab,var(--color-zinc-900)_75%,var(--color-background))]"></div>
-            <div className="mx-auto max-w-5xl space-y-8 px-6 md:space-y-16 lg:space-y-20 dark:[--color-border:color-mix(in_oklab,var(--color-white)_10%,transparent)]">
-                <div className="relative z-10 mx-auto max-w-2xl space-y-6 text-center">
-                    <h2 className="text-balance text-4xl font-semibold lg:text-6xl">Effortless Evaluation. Instant Feedback.</h2>
-                    <p>Your one-stop UPSC mock test platform for fast evaluations, personalized dashboards, and continuous progress tracking.</p>
+        <section id="features" className="relative py-20 md:py-28 lg:py-32">
+            <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(217,217,217,0.05),rgba(255,255,255,0))]"></div>
+
+            <div className="mx-auto max-w-7xl px-6 lg:px-8">
+                <div className="mx-auto max-w-3xl text-center">
+                    <TextGenerateEffect
+                        words="A smarter way to prepare for the UPSC."
+                        className="text-balance text-4xl font-semibold lg:text-5xl"
+                    />
+                    <p className="mx-auto mt-6 max-w-2xl text-balance text-lg text-muted-foreground">
+                        Our platform is built with powerful, intuitive features designed to accelerate your learning and evaluation cycle.
+                    </p>
                 </div>
 
-                <div className="grid gap-12 sm:px-12 md:grid-cols-2 lg:gap-20 lg:px-0">
-                    <Accordion
-                        type="single"
-                        value={activeItem}
-                        onValueChange={(value) => setActiveItem(value as ImageKey)}
-                        className="w-full">
-                        <AccordionItem value="item-1">
-                            <AccordionTrigger>
-                                <div className="flex items-center gap-2 text-base">
-                                    <Clock className="size-4" />
-                                    Rapid Paper Evaluation
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                Submitted answers are evaluated within 24–48 hours by faculty, enabling faster feedback and improvement cycles.
-                            </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="item-2">
-                            <AccordionTrigger>
-                                <div className="flex items-center gap-2 text-base">
-                                    <ClipboardList className="size-4" />
-                                    Student Dashboard
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                A clean, minimal dashboard where students can upload papers, track submissions, and access results anytime.
-                            </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="item-3">
-                            <AccordionTrigger>
-                                <div className="flex items-center gap-2 text-base">
-                                    <UserCheck className="size-4" />
-                                    Faculty Tools
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                Faculty receive an intuitive interface to manage evaluations, mark papers, and deliver detailed feedback efficiently.
-                            </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="item-4">
-                            <AccordionTrigger>
-                                <div className="flex items-center gap-2 text-base">
-                                    <BarChart3 className="size-4" />
-                                    Performance Analytics
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                Visual reports help students identify strengths, weaknesses, and trends—guiding them toward UPSC success.
-                            </AccordionContent>
-                        </AccordionItem>
-                    </Accordion>
+                <div className="mt-16 grid items-center gap-12 md:mt-20 md:grid-cols-2 lg:gap-20">
+                    <div className="flex flex-col gap-4">
+                        {features.map((feature) => (
+                            <FeatureCard
+                                key={feature.id}
+                                feature={feature}
+                                isActive={activeFeature?.id === feature.id}
+                                onClick={() => handleFeatureClick(feature)}
+                            />
+                        ))}
+                    </div>
 
-                    <div className="bg-background relative flex overflow-hidden rounded-3xl border p-2">
-                        <div className="w-15 absolute inset-0 right-0 ml-auto border-l bg-[repeating-linear-gradient(-45deg,var(--color-border),var(--color-border)_1px,transparent_1px,transparent_8px)]"></div>
-                        <div className="aspect-76/59 bg-background relative w-[calc(3/4*100%+3rem)] rounded-2xl">
-                            <AnimatePresence mode="wait">
+                    <div className="relative flex h-[500px] w-full items-center justify-center rounded-2xl bg-zinc-900/5 p-4 ring-1 ring-inset ring-zinc-900/10 dark:bg-zinc-900 dark:ring-white/10">
+                        <AnimatePresence mode="wait">
+                            {activeFeature && (
                                 <motion.div
-                                    key={`${activeItem}-id`}
-                                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: 6, scale: 0.98 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="size-full overflow-hidden rounded-2xl border bg-zinc-900 shadow-md">
+                                    key={activeFeature.id}
+                                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95, y: -20 }}
+                                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                                    className="h-full w-full overflow-hidden rounded-lg"
+                                >
                                     <Image
-                                        src={images[activeItem].image}
-                                        className="size-full object-cover object-left-top dark:mix-blend-lighten"
-                                        alt={images[activeItem].alt}
-                                        width={1207}
-                                        height={929}
+                                        src={activeFeature.image}
+                                        alt={activeFeature.alt}
+                                        width={1207} height={929}
+                                        className="size-full rounded-lg object-cover object-left-top shadow-md"
                                     />
                                 </motion.div>
-                            </AnimatePresence>
-                        </div>
-                        <BorderBeam
-                            duration={6}
-                            size={200}
-                            className="from-transparent via-yellow-700 to-transparent dark:via-white/50"
-                        />
+                            )}
+                        </AnimatePresence>
+                        <BorderBeam duration={6} size={200} className="from-transparent via-yellow-600 to-transparent dark:via-white/80" />
                     </div>
                 </div>
             </div>
@@ -124,114 +116,45 @@ export default function Features() {
     )
 }
 
-// new version but experimental 
-
-// 'use client'
-
-// import React from 'react'
-// import { BentoGrid, BentoGridItem } from '@/components/ui/bento-grid'
-// import { TextGenerateEffect } from '@/components/ui/text-generate-effect'
-// import { Clock, ClipboardList, UserCheck, BarChart3 } from 'lucide-react'
-// import Image from 'next/image'
-// import { BorderBeam } from '@/components/magicui/border-beam'
-// import { cn } from '@/lib/utils'
-
-// // Reusable Image Card component with the FIX
-// const ImageCard = ({
-//     src,
-//     alt,
-//     className,
-//     beam = false,
-// }: {
-//     src: string
-//     alt: string
-//     className?: string
-//     beam?: boolean
-// }) => (
-//     <div
-//         className={cn(
-//             // FIX #1: Added aspect-video to enforce a 16:9 aspect ratio
-//             'relative flex size-full min-h-[6rem] items-center justify-center overflow-hidden rounded-xl aspect-video',
-//             className
-//         )}
-//     >
-//         <Image
-//             src={src}
-//             width={1207}
-//             height={929}
-//             // FIX #2: Changed object-left-top to object-center for better cropping behavior
-//             className="size-full rounded-xl object-cover object-center transition duration-200 group-hover/bento:scale-105"
-//             alt={alt}
-//         />
-//         {beam && (
-//             <BorderBeam
-//                 duration={8}
-//                 size={250}
-//                 delay={2}
-//                 className="from-transparent via-yellow-700 to-transparent dark:via-white/50"
-//             />
-//         )}
-//     </div>
-// )
-
-// export default function Features() {
-//     return (
-//         <section id="features" className="relative py-12 md:py-20 lg:py-20">
-//             <div className="bg-linear-to-b dark:to-[color-mix(in_oklab,var(--color-zinc-900)_75%,var(--color-background))] absolute inset-0 -z-10 sm:inset-6 sm:rounded-b-3xl" />
-//             <div className="mx-auto max-w-3xl space-y-4 px-6 text-center">
-//                 <TextGenerateEffect
-//                     words="A smarter way to prepare for the UPSC."
-//                     className="text-balance text-4xl font-semibold lg:text-6xl"
-//                 />
-//                 <p className="text-zinc-600 dark:text-zinc-400">
-//                     Our platform is built from the ground up with powerful, intuitive features designed to accelerate your learning and evaluation cycle.
-//                 </p>
-//             </div>
-//             <div className="mt-16">
-//                 <BentoGrid className="mx-auto max-w-4xl">
-//                     {items.map((item, i) => (
-//                         <BentoGridItem
-//                             key={i}
-//                             title={item.title}
-//                             description={item.description}
-//                             header={item.header}
-//                             icon={item.icon}
-//                             className={item.className}
-//                         />
-//                     ))}
-//                 </BentoGrid>
-//             </div>
-//         </section>
-//     )
-// }
-
-// const items = [
-//     {
-//         title: 'Rapid Paper Evaluation',
-//         description: 'Get your answers evaluated by faculty within 24-48 hours, not weeks.',
-//         header: <ImageCard src="/images/features/evaluation.png" alt="Fast answer sheet evaluation" />,
-//         icon: <Clock className="h-4 w-4 text-neutral-500" />,
-//         className: 'md:col-span-1',
-//     },
-//     {
-//         title: 'Minimalist Student Dashboard',
-//         description: 'Upload papers, track submissions, and view results in a clean, focused interface.',
-//         header: <ImageCard src="/images/features/student_dashboard.png" alt="Easy test submission dashboard" />,
-//         icon: <ClipboardList className="h-4 w-4 text-neutral-500" />,
-//         className: 'md:col-span-1',
-//     },
-//     {
-//         title: 'Efficient Faculty Tools',
-//         description: 'An intuitive interface for faculty to manage evaluations and provide detailed feedback.',
-//         header: <ImageCard src="/images/features/faculty.png" alt="Faculty evaluation tools" />,
-//         icon: <UserCheck className="h-4 w-4 text-neutral-500" />,
-//         className: 'md:col-span-1',
-//     },
-//     {
-//         title: 'In-Depth Performance Analytics',
-//         description: 'Visual reports to identify strengths, weaknesses, and track progress over time.',
-//         header: <ImageCard src="/images/features/analytics.png" alt="Student feedback and progress analytics" beam />,
-//         icon: <BarChart3 className="h-4 w-4 text-neutral-500" />,
-//         className: 'md:col-span-3',
-//     },
-// ]
+function FeatureCard({
+    feature,
+    isActive,
+    onClick,
+}: {
+    feature: Feature
+    isActive: boolean
+    onClick: () => void
+}) {
+    return (
+        <div
+            onClick={onClick}
+            className={cn('group relative cursor-pointer rounded-xl border border-transparent p-6 transition-all duration-300',
+                isActive
+                    ? 'bg-zinc-100/80 dark:bg-zinc-900'
+                    : 'hover:bg-zinc-100/50 dark:hover:bg-zinc-900/50'
+            )}
+        >
+            <div className="flex items-start gap-5">
+                <div className={cn('mt-1 flex size-8 shrink-0 items-center justify-center rounded-full transition-colors',
+                    isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
+                )}>
+                    {/* Use the icon map here */}
+                    {iconMap[feature.icon] || <div className="size-6" />}
+                </div>
+                <div>
+                    <h3 className="text-lg font-semibold">{feature.title}</h3>
+                    <p className="mt-1 text-muted-foreground">{feature.description}</p>
+                </div>
+            </div>
+            {isActive && (
+                <motion.div
+                    layoutId="active-feature-border"
+                    className="absolute inset-0 rounded-xl border-2 border-primary"
+                    transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                />
+            )}
+        </div>
+    )
+}

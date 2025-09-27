@@ -1,209 +1,165 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { ChevronRight } from 'lucide-react'
 import Image from 'next/image'
+import { Button } from '@/components/ui/button'
+import { TextGenerateEffect } from '@/components/ui/text-generate-effect'
+import { ChevronRight, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
-import { useEffect } from 'react'
+import { useHomepageStore } from '@/stores/homepage'
+import { motion, AnimatePresence } from 'framer-motion'
+
+// A simple skeleton loader for the Hero section
+const HeroSkeleton = () => (
+    <div className="relative z-10 flex h-full items-center">
+        <div className="mx-auto w-full max-w-6xl px-6">
+            <div className="grid animate-pulse items-center gap-12 md:grid-cols-2">
+                <div className="max-w-xl">
+                    <div className="mb-4 h-12 w-3/4 rounded-lg bg-zinc-200 dark:bg-zinc-800"></div>
+                    <div className="h-8 w-1/2 rounded-lg bg-zinc-200 dark:bg-zinc-800"></div>
+                    <div className="my-8 space-y-3">
+                        <div className="h-4 rounded-lg bg-zinc-200 dark:bg-zinc-800"></div>
+                        <div className="h-4 w-5/6 rounded-lg bg-zinc-200 dark:bg-zinc-800"></div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-48 rounded-lg bg-zinc-200 dark:bg-zinc-800"></div>
+                        <div className="h-12 w-40 rounded-lg bg-zinc-200 dark:bg-zinc-800"></div>
+                    </div>
+                </div>
+                <div className="hidden h-[450px] rounded-2xl bg-zinc-200 dark:bg-zinc-800 md:block"></div>
+            </div>
+        </div>
+    </div>
+)
 
 export default function HeroSection() {
-    // 1. Get user and profile from the auth store
+    // Auth store for dynamic button links
     const { user, profile, fetchUser } = useAuthStore()
+    // Homepage store for dynamic content
+    const { data: homepageData, loading, fetchHomepageData } = useHomepageStore()
 
-    // Fetch user data when the component mounts to ensure state is up-to-date
+    const [currentIndex, setCurrentIndex] = useState(0)
+
+    // Fetch user and homepage data on component mount
     useEffect(() => {
         fetchUser()
-    }, [fetchUser])
+        fetchHomepageData()
+    }, [fetchUser, fetchHomepageData])
 
-    // Helper function to determine the correct path for the button based on login status and role
-    const getButtonPath = () => {
-        // If the user isn't logged in (or profile is still loading), send them to the login page
-        if (!user || !profile) {
-            return '/login'
+    const heroSlides = homepageData?.heroSlides || []
+
+    // Effect to cycle through the hero content once data is available
+    useEffect(() => {
+        if (heroSlides.length > 1) {
+            const timer = setInterval(() => {
+                setCurrentIndex((prevIndex) => (prevIndex + 1) % heroSlides.length)
+            }, 7000) // Change slide every 7 seconds
+            return () => clearInterval(timer)
         }
+    }, [heroSlides.length])
 
-        // Check the user's role to determine the destination
+    const getButtonPath = () => {
+        if (!user || !profile) return '/login'
         switch (profile.role) {
-            case 'student':
-                // If the user is a student, link to the answer sheet submission page
-                return '/student/answersheet'
-            case 'admin':
-                // If admin, link to their dashboard
-                return '/admin/dashboard'
-            case 'faculty':
-                // If faculty, link to their dashboard
-                return '/faculty/dashboard'
-            default:
-                // Fallback for any other case (e.g., an unknown role) is the login page
-                return '/login'
+            case 'student': return '/student/answersheet'
+            case 'admin': return '/admin/dashboard'
+            case 'faculty': return '/faculty/dashboard'
+            default: return '/login'
         }
     }
 
-    // Call the function to get the dynamic path
     const submitAnswerPath = getButtonPath()
 
-    
+    if (loading && !homepageData) {
+        return (
+            <section className="relative h-screen w-full overflow-hidden">
+                <div className="absolute inset-0 h-full w-full bg-background bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:36px_36px]"></div>
+                <HeroSkeleton />
+            </section>
+        )
+    }
+
+    if (!heroSlides.length) return null // Don't render if there's no data
+
+    const currentSlide = heroSlides[currentIndex]
+
+    const textVariants = {
+        initial: { opacity: 0, y: 20 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: -20 },
+    }
+
+    const imageVariants = {
+        initial: { opacity: 0, scale: 0.95 },
+        animate: { opacity: 1, scale: 1 },
+        exit: { opacity: 0, scale: 0.95 },
+    }
+
+    const TextContent = (
+        <motion.div
+            key={`${currentIndex}-text`}
+            initial="initial" animate="animate" exit="exit"
+            variants={textVariants}
+            transition={{ duration: 0.6, ease: 'easeInOut' }}
+            className="max-w-xl"
+        >
+            <TextGenerateEffect
+                words={currentSlide.title}
+                className="text-balance text-5xl font-semibold md:text-6xl"
+                key={currentIndex}
+            />
+            <p className="my-8 text-balance text-lg text-muted-foreground">
+                {currentSlide.description}
+            </p>
+            <div className="flex items-center gap-4">
+                <Button asChild size="lg" className="group">
+                    <Link href={submitAnswerPath}>
+                        Submit your answers
+                        <ChevronRight className="ml-1 size-5 transition-transform duration-300 group-hover:translate-x-1" />
+                    </Link>
+                </Button>
+                <Button asChild size="lg" variant="outline">
+                    <Link href="/blog">See How It Works</Link>
+                </Button>
+            </div>
+        </motion.div>
+    )
+
+    const ImageContent = (
+        <motion.div
+            key={`${currentIndex}-image`}
+            initial="initial" animate="animate" exit="exit"
+            variants={imageVariants}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+            className="hidden md:block"
+        >
+            <div className="relative overflow-hidden rounded-2xl shadow-2xl shadow-primary/10">
+                <Image
+                    src={currentSlide.imageSrc}
+                    alt={currentSlide.imageAlt}
+                    width={1200} height={821} priority
+                    className="object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent"></div>
+            </div>
+        </motion.div>
+    )
+
     return (
-        <main className="overflow-hidden">
-            <section className="bg-linear-to-b to-muted from-background h-screen">
-                <div className="relative py-36">
-                    <div className="relative z-10 mx-auto w-full max-w-5xl px-6">
-                        <div className="md:w-1/2">
-                            <div>
-                                <h1 className="max-w-md text-balance text-5xl font-semibold md:text-6xl">
-                                    Preparing for UPSC Mains?
-                                </h1>
-                                <p className="text-muted-foreground my-8 max-w-2xl text-balance text-xl">
-                                    Submit your answers, get expert evaluation in fixed time,
-                                    and track progress using our simple credit system.
-                                    Prepare smarter, not harder.
-                                </p>
-
-                                <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-3">
-                                        <Button
-                                            asChild
-                                            size="lg"
-                                            className="pr-4.5 bg-primary text-primary-foreground hover:bg-primary/90 dark:bg-primary dark:text-white"
-                                        >
-                                            {/* 4. Use the dynamic path for the Link's href */}
-                                            <Link href={submitAnswerPath}>
-                                                <span className="text-nowrap">Submit your answers</span>
-                                                <ChevronRight className="opacity-70" />
-                                            </Link>
-                                        </Button>
-
-                                        <Button
-                                            asChild
-                                            size="lg"
-                                            variant="outline"
-                                            className="pl-5 border-foreground/40 text-foreground hover:bg-foreground/10 dark:border-white/40 dark:text-white dark:hover:bg-white/10"
-                                        >
-                                            <Link href="#watch-video">
-                                                <span className="text-nowrap">See How It Works</span>
-                                            </Link>
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="perspective-near mt-24 translate-x-12 md:absolute md:-right-6 md:bottom-16 md:left-1/2 md:top-40 md:mt-0 md:translate-x-0">
-                        <div className="before:border-foreground/5 before:bg-foreground/5 relative h-full before:absolute before:-inset-x-4 before:bottom-7 before:top-0 before:skew-x-6 before:rounded-[calc(var(--radius)+1rem)] before:border">
-                            <div className="bg-background rounded-(--radius) shadow-foreground/10 ring-foreground/5 relative h-full -translate-y-12 skew-x-6 overflow-hidden border border-transparent shadow-md ring-1">
-                                <Image
-                                    src="/images/hero.jpg"
-                                    alt="Mock Evaluation Dashboard"
-                                    width="2880"
-                                    height="1842"
-                                    className="object-top-left size-full object-cover"
-                                />
-                            </div>
-                        </div>
+        <section className="relative h-screen w-full overflow-hidden">
+            <div className="absolute inset-0 h-full w-full bg-background bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:36px_36px]"></div>
+            <div className="relative z-10 flex h-full items-center">
+                <div className="mx-auto max-w-6xl px-6">
+                    <div className="grid items-center gap-12 md:grid-cols-2">
+                        <AnimatePresence mode="wait">
+                            {currentSlide.layout === 'imageRight'
+                                ? [TextContent, ImageContent]
+                                : [ImageContent, TextContent]}
+                        </AnimatePresence>
                     </div>
                 </div>
-            </section>
-        </main>
+            </div>
+        </section>
     )
 }
-
-// new version but experimental
-
-// 'use client'
-
-// import Link from 'next/link'
-// import { Button } from '@/components/ui/button'
-// import { ChevronRight } from 'lucide-react'
-// import Image from 'next/image'
-// import { useAuthStore } from '@/stores/auth'
-// import { useEffect } from 'react'
-// import { TextGenerateEffect } from '@/components/ui/text-generate-effect'
-// import { motion } from 'framer-motion'
-
-// export default function HeroSection() {
-//     const { user, profile, fetchUser } = useAuthStore()
-
-//     useEffect(() => {
-//         fetchUser()
-//     }, [fetchUser])
-
-//     const getButtonPath = () => {
-//         if (!user || !profile) return '/login'
-//         switch (profile.role) {
-//             case 'student': return '/student/answersheet'
-//             case 'admin': return '/admin/dashboard'
-//             case 'faculty': return '/faculty/dashboard'
-//             default: return '/login'
-//         }
-//     }
-
-//     const submitAnswerPath = getButtonPath()
-
-//     return (
-//         <section className="relative w-full h-screen overflow-hidden">
-//             {/* Grid Background */}
-//             <div className="absolute inset-0 h-full w-full bg-background bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:36px_36px]"></div>
-            
-//             <div className="relative z-10 flex h-full items-center">
-//                 <div className="mx-auto max-w-6xl px-6">
-//                     <div className="grid md:grid-cols-2 items-center gap-12">
-//                         {/* Left Content */}
-//                         <div className="max-w-xl">
-//                             <TextGenerateEffect
-//                                 words="Preparing for UPSC Mains?"
-//                                 className="text-5xl font-semibold md:text-6xl text-balance"
-//                             />
-//                             <motion.p 
-//                                 initial={{ opacity: 0, y: 20 }}
-//                                 animate={{ opacity: 1, y: 0 }}
-//                                 transition={{ duration: 0.5, delay: 0.8 }}
-//                                 className="text-muted-foreground my-8 text-balance text-lg"
-//                             >
-//                                 Submit your answers, get expert evaluation in fixed time,
-//                                 and track progress using our simple credit system. Prepare smarter, not harder.
-//                             </motion.p>
-//                             <motion.div
-//                                 initial={{ opacity: 0, y: 20 }}
-//                                 animate={{ opacity: 1, y: 0 }}
-//                                 transition={{ duration: 0.5, delay: 1 }} 
-//                                 className="flex items-center gap-4"
-//                             >
-//                                 <Button asChild size="lg" className="group">
-//                                     <Link href={submitAnswerPath}>
-//                                         Submit your answers
-//                                         <ChevronRight className="ml-1 size-5 transition-transform duration-300 group-hover:translate-x-1" />
-//                                     </Link>
-//                                 </Button>
-//                                 <Button asChild size="lg" variant="outline">
-//                                     <Link href="#features">See How It Works</Link>
-//                                 </Button>
-//                             </motion.div>
-//                         </div>
-
-//                         {/* Right Content - Image */}
-//                         <motion.div 
-//                             initial={{ opacity: 0, scale: 0.9, x: 50 }}
-//                             animate={{ opacity: 1, scale: 1, x: 0 }}
-//                             transition={{ duration: 0.8, ease: "easeOut", delay: 0.4 }}
-//                             className="hidden md:block"
-//                         >
-//                             <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-primary/10">
-//                                 <Image
-//                                     src="/images/hero.jpg"
-//                                     alt="Mock Evaluation Dashboard"
-//                                     width={1200}
-//                                     height={821}
-//                                     priority
-//                                     className="object-cover"
-//                                 />
-//                                 <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent"></div>
-//                             </div>
-//                         </motion.div>
-//                     </div>
-//                 </div>
-//             </div>
-//         </section>
-//     )
-// }

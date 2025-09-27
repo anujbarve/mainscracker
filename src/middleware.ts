@@ -46,6 +46,7 @@ export async function middleware(request: NextRequest) {
     "/images/features/student_dashboard.png",
     "/email/invite.html",
     "/email/password-reset.html",
+    "/terms-and-conditions"
   ];
 
   const isPublicRoute =
@@ -88,7 +89,7 @@ export async function middleware(request: NextRequest) {
     const role = profile?.role ?? "student";
 
     // Skip redirect for home `/` and `/blog`
-    if (pathname !== "/" && !pathname.startsWith("/blog")) {
+    if (pathname !== "/" && !pathname.startsWith("/blog") && !pathname.startsWith("/legal")) {
       if (role === "student" && !pathname.startsWith("/student")) {
         const url = request.nextUrl.clone();
         url.pathname = "/student";

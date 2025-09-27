@@ -90,6 +90,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           items: [
             { title: "Billing", url: `${basePath}/billing` },
             { title: "Plans", url: `${basePath}/plans` },
+            { title: "System Settings", url: `${basePath}/system-settings` },
           ],
         },
       ]

@@ -310,6 +310,13 @@ export type Report = {
   generated_at: string;
 };
 
+export type SystemSetting = {
+  id: string;
+  settings_data: any; // Using `any` for flexibility with different JSONB structures
+  description: string | null;
+  updated_at: string;
+};
+
 // ============================================================================
 // ZUSTAND STORE DEFINITION
 // ============================================================================
@@ -357,6 +364,10 @@ type AdminState = {
   facultyWorkload: FacultyWorkload | null;
   userSubscriptions: UserSubscription[] | null;
 
+  // Settings
+  systemSettings: SystemSetting[] | null;
+  currentSetting: SystemSetting | null;
+
   // UI State
   loading: Record<string, boolean>;
   lastFetched: Record<string, number | null>;
@@ -378,6 +389,9 @@ type AdminState = {
   clearCurrentSupportTicket: () => void;
   /** Clears the currently selected plan from the state. */
   clearCurrentPlan: () => void;
+
+  clearCurrentSetting: () => void;
+
   //endregion
 
   //region ------------------- DASHBOARD & ANALYTICS -------------------
@@ -492,6 +506,17 @@ type AdminState = {
   /** Adds a new message reply to a support ticket. */
   addSupportTicketMessage: (ticketId: string, message: string) => Promise<boolean>;
   //endregion
+
+
+  // ✅ NEW: Region for settings management actions
+  //region ------------------- SETTINGS MANAGEMENT -------------------
+  /** Fetches all system settings. */
+  fetchSystemSettings: (options?: FetchOptions) => Promise<void>;
+  /** Fetches a single system setting by its ID. */
+  fetchSystemSettingById: (id: string) => Promise<void>;
+  /** Updates an existing system setting. */
+  updateSystemSetting: (id: string, data: Partial<Pick<SystemSetting, 'settings_data' | 'description'>>) => Promise<boolean>;
+  //endregion
 };
 
 export const useAdminStore = create<AdminState>((set, get) => ({
@@ -523,6 +548,8 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   currentReport: null,
   facultyWorkload: null,
   userSubscriptions: null,
+  systemSettings: null,
+  currentSetting: null,
   loading: {},
   lastFetched: {},
   error: null,
@@ -540,6 +567,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   clearCurrentMentorshipSession: () => set({ currentMentorshipSession: null }),
   clearCurrentSupportTicket: () => set({ currentSupportTicket: null }),
   clearCurrentPlan: () => set({ currentPlan: null }),
+  clearCurrentSetting: () => set({ currentSetting: null }),
   //endregion
 
   //region ------------------- DASHBOARD & ANALYTICS -------------------
@@ -1741,6 +1769,81 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       return false;
     } finally {
       get().setLoading(`ticket_messages_${ticketId}`, false);
+    }
+  },
+  //endregion
+  // ✅ NEW: Implementation for Settings Management
+  //region ------------------- SETTINGS MANAGEMENT -------------------
+  fetchSystemSettings: async (options) => {
+    const cacheKey = "systemSettings";
+    const { systemSettings, lastFetched } = get();
+    if (
+      !options?.force &&
+      systemSettings &&
+      lastFetched[cacheKey] &&
+      Date.now() - lastFetched[cacheKey]! < CACHE_DURATION_MS
+    ) {
+      return;
+    }
+    get().setLoading(cacheKey, true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("system_settings")
+        .select("*")
+        .order("id", { ascending: true });
+
+      if (error) throw error;
+      set((state) => ({
+        systemSettings: data,
+        lastFetched: { ...state.lastFetched, [cacheKey]: Date.now() },
+      }));
+    } catch (err) {
+      toast.error("Failed to fetch system settings.");
+    } finally {
+      get().setLoading(cacheKey, false);
+    }
+  },
+
+  fetchSystemSettingById: async (id) => {
+    get().setLoading("currentSetting", true);
+    set({ currentSetting: null });
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("system_settings")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+      set({ currentSetting: data });
+    } catch (err: any) {
+      toast.error("Failed to fetch setting details.");
+    } finally {
+      get().setLoading("currentSetting", false);
+    }
+  },
+
+  updateSystemSetting: async (id, data) => {
+    get().setLoading(`setting_${id}`, true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("system_settings")
+        .update(data)
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("System setting updated successfully.");
+      get().fetchSystemSettings({ force: true }); // Refresh the list
+      if (get().currentSetting?.id === id) {
+        get().fetchSystemSettingById(id); // Refresh current view
+      }
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update setting.");
+      return false;
+    } finally {
+      get().setLoading(`setting_${id}`, false);
     }
   },
   //endregion

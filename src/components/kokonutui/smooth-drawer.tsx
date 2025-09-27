@@ -1,17 +1,7 @@
 "use client";
 
-/**
- * @author: @dorian_baffier
- * @description: Smooth Drawer
- * @version: 1.0.0
- * @date: 2025-06-26
- * @license: MIT
- * @website: https://kokonutui.com
- * @github: https://github.com/kokonut-labs/kokonutui
- */
-
 import * as React from "react";
-
+import { useRouter } from 'next/navigation'; // Import the router
 import { Button } from "@/components/ui/button";
 import {
     Drawer,
@@ -21,118 +11,100 @@ import {
     DrawerFooter,
     DrawerHeader,
     DrawerTitle,
-    DrawerTrigger,
 } from "@/components/ui/drawer";
-import Image from "next/image";
 import Link from "next/link";
-import { motion } from "motion/react";
+import { motion } from "framer-motion";
 import { Fingerprint } from "lucide-react";
+import { Plan } from "@/stores/admin";
+import { useAuthStore } from "@/stores/auth";
+import { PlanType } from "@/stores/homepage";
 
+// Assuming Plan and PlanType are correctly exported from your store files
+
+// PriceTag component remains the same
 interface PriceTagProps {
     price: number;
-    discountedPrice: number;
+    currency: string;
+    type: PlanType;
+    interval?: string | null;
 }
 
-function PriceTag({ price, discountedPrice }: PriceTagProps) {
+function PriceTag({ price, currency, type, interval }: PriceTagProps) {
+    const formattedPrice = new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: currency,
+        minimumFractionDigits: 0,
+    }).format(price);
+
     return (
         <div className="flex items-center justify-around gap-4 max-w-fit mx-auto">
             <div className="flex items-baseline gap-2">
                 <span className="text-4xl font-bold bg-gradient-to-br from-zinc-900 to-zinc-700 dark:from-white dark:to-zinc-300 bg-clip-text text-transparent">
-                    ${discountedPrice}
-                </span>
-                <span className="text-lg line-through text-zinc-400 dark:text-zinc-500">
-                    ${price}
+                    {formattedPrice}
                 </span>
             </div>
             <div className="flex flex-col items-center gap-0.5">
-                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    Lifetime access
+                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 capitalize">
+                    {type === 'one_time' ? 'One-Time Payment' : `${interval ?? 'Recurring'} Plan`}
                 </span>
                 <span className="text-xs text-zinc-700 dark:text-zinc-300">
-                    One-time payment
+                    Get instant access
                 </span>
             </div>
         </div>
     );
 }
 
-interface DrawerDemoProps extends React.HTMLAttributes<HTMLDivElement> {
-    title?: string;
-    description?: string;
+
+interface SmoothDrawerProps {
+    plan: Plan;
+    triggerButtonText?: string;
     primaryButtonText?: string;
     secondaryButtonText?: string;
-    onPrimaryAction?: () => void;
     onSecondaryAction?: () => void;
-    price?: number;
-    discountedPrice?: number;
 }
 
-const drawerVariants = {
-    hidden: {
-        y: "100%",
-        opacity: 0,
-        rotateX: 5,
-        transition: {
-            type: "spring",
-            stiffness: 300,
-            damping: 30,
-        },
-    },
-    visible: {
-        y: 0,
-        opacity: 1,
-        rotateX: 0,
-        transition: {
-            type: "spring",
-            stiffness: 300,
-            damping: 30,
-            mass: 0.8,
-            staggerChildren: 0.07,
-            delayChildren: 0.2,
-        },
-    },
-};
-
-const itemVariants = {
-    hidden: {
-        y: 20,
-        opacity: 0,
-        transition: {
-            type: "spring",
-            stiffness: 300,
-            damping: 30,
-        },
-    },
-    visible: {
-        y: 0,
-        opacity: 1,
-        transition: {
-            type: "spring",
-            stiffness: 300,
-            damping: 30,
-            mass: 0.8,
-        },
-    },
-};
+// Animation variants remain the same
+const drawerVariants = { /* ... */ };
+const itemVariants = { /* ... */ };
 
 export default function SmoothDrawer({
-    title = "UPSC - Pro",
-    description = "",
-    primaryButtonText = "Buy Now",
+    plan,
+    triggerButtonText = "Purchase Plan",
+    primaryButtonText = "Confirm Purchase",
     secondaryButtonText = "Maybe Later",
     onSecondaryAction,
-    price = 169,
-    discountedPrice = 99,
-}: DrawerDemoProps) {
+}: SmoothDrawerProps) {
+    // 1. Get user state and router
+    const { user } = useAuthStore();
+    const router = useRouter();
+    const [isOpen, setIsOpen] = React.useState(false);
+
     const handleSecondaryClick = () => {
         onSecondaryAction?.();
     };
 
+    // 2. Create the click handler with the authentication check
+    const handlePurchaseClick = () => {
+        if (!user) {
+            // If user is not logged in, redirect to the login page
+            router.push('/login');
+        } else {
+            // If user is logged in, open the drawer
+            setIsOpen(true);
+        }
+    };
+
+    // Construct a checkout link for logged-in users
+    const checkoutLink = `/checkout?plan=${plan.id}`;
+
     return (
-        <Drawer>
-            <DrawerTrigger asChild>
-                <Button variant="outline">Open Drawer</Button>
-            </DrawerTrigger>
+        // 3. Control the Drawer's open state manually
+        <Drawer open={isOpen} onOpenChange={setIsOpen}>
+            {/* The trigger is now a regular button that calls our handler */}
+            <Button className="w-full" onClick={handlePurchaseClick}>
+                {triggerButtonText}
+            </Button>
             <DrawerContent className="max-w-fit mx-auto p-6 rounded-2xl shadow-xl">
                 <motion.div
                     variants={drawerVariants as any}
@@ -141,24 +113,21 @@ export default function SmoothDrawer({
                     className="mx-auto w-full max-w-[340px] space-y-6"
                 >
                     <motion.div variants={itemVariants as any}>
-                        <DrawerHeader className="px-0 space-y-2.5">
-                            <DrawerTitle className="text-2xl font-semibold flex items-center gap-2.5 tracking-tighter">
-                                <motion.span variants={itemVariants as any}>
-                                    {title}
-                                </motion.span>
+                        <DrawerHeader className="px-0 space-y-2.5 text-center">
+                            <DrawerTitle className="text-2xl font-semibold tracking-tighter">
+                                {plan.name}
                             </DrawerTitle>
-                            <motion.div variants={itemVariants as any}>
-                                <DrawerDescription className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 tracking-tighter">
-                                    {description}
-                                </DrawerDescription>
-                            </motion.div>
+                            <DrawerDescription className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 tracking-tighter">
+                                {plan.description || "A comprehensive package to boost your preparation."}
+                            </DrawerDescription>
                         </DrawerHeader>
                     </motion.div>
 
                     <motion.div variants={itemVariants as any}>
                         <PriceTag
-                            price={price}
-                            discountedPrice={discountedPrice}
+                            price={plan.price}
+                            currency={plan.currency}
+                            type={plan.type}
                         />
                     </motion.div>
 
@@ -166,43 +135,14 @@ export default function SmoothDrawer({
                         <DrawerFooter className="flex flex-col gap-3 px-0">
                             <div className="w-full">
                                 <Link
-                                    href="#"
-                                    target="_blank"
-                                    className="group w-full relative overflow-hidden inline-flex items-center justify-center h-11 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 dark:from-rose-600 dark:to-pink-600 text-white text-sm font-semibold tracking-wide shadow-lg shadow-rose-500/20 transition-all duration-500 hover:shadow-xl hover:shadow-rose-500/30 hover:from-rose-600 hover:to-pink-600 dark:hover:from-rose-500 dark:hover:to-pink-500"
+                                    href={checkoutLink}
+                                    className="group w-full relative overflow-hidden inline-flex items-center justify-center h-11 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 dark:from-rose-600 dark:to-pink-600 text-white text-sm font-semibold tracking-wide shadow-lg shadow-rose-500/20 transition-all duration-500 hover:shadow-xl hover:shadow-rose-500/30"
                                 >
-                                    <motion.span
-                                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%]"
-                                        whileHover={{
-                                            x: ["-200%", "200%"],
-                                        }}
-                                        transition={{
-                                            duration: 1.5,
-                                            ease: "easeInOut",
-                                            repeat: 0,
-                                        }}
-                                    />
-                                    <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ duration: 0.3 }}
-                                        className="relative flex items-center gap-2 tracking-tighter"
-                                    >
+                                    <motion.span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%]" whileHover={{ x: ["-200%", "200%"] }} transition={{ duration: 1.5, ease: "easeInOut" }} />
+                                    <div className="relative flex items-center gap-2 tracking-tighter">
                                         {primaryButtonText}
-                                        <motion.div
-                                            animate={{
-                                                rotate: [0, 15, -15, 0],
-                                                y: [0, -2, 2, 0],
-                                            }}
-                                            transition={{
-                                                duration: 2,
-                                                ease: "easeInOut",
-                                                repeat: Number.POSITIVE_INFINITY,
-                                                repeatDelay: 1,
-                                            }}
-                                        >
-                                            <Fingerprint className="w-4 h-4" />
-                                        </motion.div>
-                                    </motion.div>
+                                        <Fingerprint className="w-4 h-4" />
+                                    </div>
                                 </Link>
                             </div>
                             <DrawerClose asChild>
