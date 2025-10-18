@@ -31,22 +31,28 @@ export async function POST(req: Request) {
 
     // Only sync recurring plans
     if (plan.type !== "recurring") {
-      return NextResponse.json({ error: "Not a recurring plan" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Not a recurring plan" },
+        { status: 400 }
+      );
     }
-    
+
     // Don't re-create if it already exists
     if (plan.payment_gateway_plan_id) {
-       return NextResponse.json({ message: "Plan already synced" }, { status: 200 });
+      return NextResponse.json(
+        { message: "Plan already synced" },
+        { status: 200 }
+      );
     }
 
     // 2. Create the plan in Razorpay
     const razorpayPlan = await razorpay.plans.create({
-      period: plan.interval, // 'monthly', 'yearly', 'weekly'
+      period: plan.interval,
       interval: plan.interval_count,
       item: {
         name: plan.name,
         description: plan.description || "N/A",
-        amount: plan.price * 100, // Amount in paise
+        amount: Number(plan.price) * 100, // <-- Add Number() here
         currency: "INR",
       },
     });
@@ -58,10 +64,16 @@ export async function POST(req: Request) {
       .eq("id", plan.id);
 
     if (updateError) {
-      return NextResponse.json({ error: "Failed to update internal plan." }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to update internal plan." },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ success: true, razorpayPlanId: razorpayPlan.id });
+    return NextResponse.json({
+      success: true,
+      razorpayPlanId: razorpayPlan.id,
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
