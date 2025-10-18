@@ -57,18 +57,18 @@ export async function POST(req: Request) {
       },
     });
 
-    // // 3. Update your Supabase plan with the new Razorpay ID
-    // const { error: updateError } = await supabaseAdmin
-    //   .from("plans")
-    //   .update({ payment_gateway_plan_id: razorpayPlan.id })
-    //   .eq("id", plan.id);
+    // 3. Update your Supabase plan with the new Razorpay ID
+    const { error: updateError } = await supabaseAdmin
+      .from("plans")
+      .update({ payment_gateway_plan_id: razorpayPlan.id })
+      .eq("id", plan.id);
 
-    // if (updateError) {
-    //   return NextResponse.json(
-    //     { error: "Failed to update internal plan." },
-    //     { status: 500 }
-    //   );
-    // }
+    if (updateError) {
+      return NextResponse.json(
+        { error: "Failed to update internal plan." },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
