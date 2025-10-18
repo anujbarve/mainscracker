@@ -592,8 +592,8 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       // We wrap this in a Promise to handle success/failure from the modal
       return new Promise<void>((resolve, reject) => {
         const options = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-          name: "Your App Name", // Replace with your app's name
+          key: process.env.RAZORPAY_KEY_ID!,
+          name: "Mains Cracker", // Replace with your app's name
           description: `Purchase: ${plan.name}`,
           prefill: {
             name: user.full_name || "Student",
@@ -605,9 +605,6 @@ export const useStudentStore = create<StudentState>((set, get) => ({
               "Payment successful! We are processing your order..."
             );
 
-            // The webhook will handle granting credits.
-            // We can optimistically refresh the user's data after a short delay
-            // to allow the webhook to process.
             setTimeout(() => {
               get().fetchUserOrders({ force: true });
               get().fetchUserSubscriptions({ force: true });

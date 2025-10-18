@@ -1,24 +1,32 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { cookies } from "next/headers"; // Import cookies
 import Razorpay from "razorpay";
-import { createServerClient } from "@supabase/ssr"; // <-- New import
+import { createServerClient } from "@supabase/ssr"; // Import createServerClient
 
+// Initialize Razorpay (Make sure your .env variables are correct)
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SC!,
+  key_secret: process.env.RAZORPAY_KEY_SC!, // <-- Check this variable name
 });
 
 export async function POST(req: Request) {
   try {
-    // 1. Create the server client
-    const cookieStore = cookies();
+    // 1. Create the server client (CORRECTED)
+    const cookieStore = await cookies(); // This is synchronous, no 'await' needed
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, // <-- Use ANON_KEY
       {
         cookies: {
-          async get(name: string) {
-            return (await cookieStore).get(name)?.value;
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options) {
+            cookieStore.set({ name, value: "", ...options });
           },
         },
       }
@@ -33,7 +41,7 @@ export async function POST(req: Request) {
 
     const { planId } = await req.json(); // Supabase plan UUID
 
-    // 3. Fetch plan details (this query is now authenticated as the user)
+    // 3. Fetch plan details
     const { data: plan, error: planError } = await supabase
       .from("plans")
       .select("price, name")
@@ -44,9 +52,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
 
-    // 4. Create Razorpay order
+    // 4. Create Razorpay order (Added Number() for safety)
     const options = {
-      amount: plan.price * 100, // Amount in paise
+      amount: Number(plan.price) * 100, // Amount in paise
       currency: "INR",
       receipt: `receipt_${user.id}_${planId}`,
       notes: {
@@ -60,6 +68,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ...order, planName: plan.name });
   } catch (error: any) {
+    // Log the error on the server for debugging
+    console.error("Error in create-order:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
