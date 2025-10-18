@@ -256,6 +256,7 @@ export type Plan = {
   price: number;
   currency: string;
   type: "one_time" | "recurring";
+  payment_gateway_plan_id: string | null; // <-- Add this field
   gs_credits_granted: number;
   specialized_credits_granted: number;
   mentorship_credits_granted: number;
@@ -471,6 +472,11 @@ type AdminState = {
   createPlan: (data: any) => Promise<boolean>;
   /** Updates an existing subscription plan. */
   updatePlan: (planId: string, data: Partial<Plan>) => Promise<boolean>;
+
+  // ✅ NEW: Action to sync a recurring plan with Razorpay
+  /** Syncs a recurring plan with the payment gateway (e.g., Razorpay). */
+  syncPlanWithGateway: (planId: string) => Promise<boolean>;
+
   /** Deletes a subscription plan. */
   deletePlan: (planId: string) => Promise<boolean>;
   /** Fetches all subjects. */
@@ -1351,6 +1357,32 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       return false;
     } finally {
       get().setLoading("plans", false);
+    }
+  },
+
+  syncPlanWithGateway: async (planId) => {
+    get().setLoading(`plan_sync_${planId}`, true);
+    try {
+      const response = await fetch("/api/admin/sync-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to sync plan.");
+      }
+
+      toast.success("Plan synced with payment gateway successfully!");
+      // Refresh the plans list to show the new payment_gateway_plan_id
+      get().fetchPlans(true, { force: true });
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to sync plan.");
+      return false;
+    } finally {
+      get().setLoading(`plan_sync_${planId}`, false);
     }
   },
 

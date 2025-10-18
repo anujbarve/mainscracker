@@ -11,6 +11,14 @@ import {
   OrderWithPlan,
   MentorshipSessionWithMentor,
 } from "./types"; // Import types from the file above
+import { loadRazorpayScript } from "@/lib/load-razorpay"; // ✅ 1. Import the script loader
+
+// ✅ 2. Add Razorpay to the window type
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 // Import HelpArticle and SupportTicket types
 export type HelpArticle = {
@@ -34,7 +42,13 @@ export type SupportTicket = {
   subject: string;
   description: string;
   priority: "low" | "medium" | "high" | "urgent";
-  type: "bug" | "question" | "feature_request" | "billing" | "technical" | "other";
+  type:
+    | "bug"
+    | "question"
+    | "feature_request"
+    | "billing"
+    | "technical"
+    | "other";
   status: "open" | "in_progress" | "resolved" | "closed";
   assigned_to: string | null;
   resolution_notes: string | null;
@@ -63,18 +77,25 @@ type Subject = {
   category: "gs" | "specialized";
 };
 
-type Plan = {
+export type Plan = {
   id: string;
   name: string;
   description: string | null;
   price: number;
   currency: string;
+  type: "one_time" | "recurring"; // ✅ ADDED THIS
   gs_credits_granted: number;
   specialized_credits_granted: number;
   mentorship_credits_granted: number;
 };
 
-export type AnswerStatus = "pending_assignment" | "in_evaluation" | "completed" | "cancelled" | "assigned" | "revision_requested";
+export type AnswerStatus =
+  | "pending_assignment"
+  | "in_evaluation"
+  | "completed"
+  | "cancelled"
+  | "assigned"
+  | "revision_requested";
 
 export type AnswerWithDetails = {
   id: string;
@@ -181,7 +202,12 @@ type StudentState = {
   // Help & Support actions
   fetchHelpArticles: (options?: FetchOptions) => Promise<HelpArticle[]>;
   searchHelpArticles: (query: string) => Promise<HelpArticle[]>;
-  createSupportTicket: (subject: string, description: string, priority: string, type: string) => Promise<string | null>;
+  createSupportTicket: (
+    subject: string,
+    description: string,
+    priority: string,
+    type: string
+  ) => Promise<string | null>;
   fetchSupportTickets: (options?: FetchOptions) => Promise<SupportTicket[]>;
   // Mentorship Feedback & Cancellation actions
   cancelMentorshipSession: (
@@ -523,37 +549,102 @@ export const useStudentStore = create<StudentState>((set, get) => ({
 
   purchasePlan: async (planId: string) => {
     const { user, refreshProfile } = useAuthStore.getState();
-    if (!user) return;
+    const { plans } = get(); // Get plans from this store
+
+    if (!user) {
+      toast.error("You must be logged in to make a purchase.");
+      throw new Error("User not authenticated");
+    }
+
+    const plan = plans?.find((p) => p.id === planId);
+    if (!plan) {
+      toast.error("Plan not found. Please refresh the page.");
+      throw new Error("Plan not found");
+    }
 
     try {
-      const supabase = await createClient();
-
-      const simulatedPaymentChargeId = `sim_${new Date().getTime()}`;
-
-      // Call the RPC function instead of multiple separate queries
-      const { data: newOrderId, error } = await supabase.rpc("purchase_plan", {
-        plan_id_in: planId,
-        order_status_in: "succeeded", // Simulate a successful payment
-        payment_charge_id_in: simulatedPaymentChargeId,
-      });
-
-      if (error) {
-        // The error message from `RAISE EXCEPTION` will be in error.message
-        throw error;
+      // 1. Load the Razorpay script
+      await loadRazorpayScript();
+      if (!window.Razorpay) {
+        throw new Error("Payment gateway failed to load.");
       }
 
-      toast.success("Plan purchased successfully!");
+      // 2. Call the correct backend API based on plan type
+      const endpoint =
+        plan.type === "one_time"
+          ? "/api/payment/create-order"
+          : "/api/payment/create-subscription";
 
-      // Refresh the user's data to reflect the changes made by the function
-      get().fetchUserOrders({ force: true }); // Refresh the order history
-      refreshProfile({ force: true }); // Refresh the profile to get the new credit balance
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to create payment session.");
+      }
+
+      const data = await res.json(); // This is the Razorpay order/subscription object
+
+      // 3. Open the Razorpay Modal
+      // We wrap this in a Promise to handle success/failure from the modal
+      return new Promise<void>((resolve, reject) => {
+        const options = {
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+          name: "Your App Name", // Replace with your app's name
+          description: `Purchase: ${plan.name}`,
+          prefill: {
+            name: user.full_name || "Student",
+            email: user.email,
+          },
+          handler: (response: any) => {
+            // Payment successful (optimistic)
+            toast.success(
+              "Payment successful! We are processing your order..."
+            );
+
+            // The webhook will handle granting credits.
+            // We can optimistically refresh the user's data after a short delay
+            // to allow the webhook to process.
+            setTimeout(() => {
+              get().fetchUserOrders({ force: true });
+              get().fetchUserSubscriptions({ force: true });
+              refreshProfile({ force: true }); // From useAuthStore
+            }, 3000); // 3-second delay
+
+            resolve(); // Resolve the promise on success
+          },
+          modal: {
+            ondismiss: () => {
+              toast.error("Payment was cancelled.");
+              reject(new Error("Payment cancelled")); // Reject the promise
+            },
+          },
+          notes: data.notes, // Pass notes from API
+        };
+
+        // Add the correct ID based on plan type
+        if (plan.type === "one_time") {
+          (options as any).order_id = data.id;
+        } else {
+          (options as any).subscription_id = data.id;
+        }
+
+        const rzp = new window.Razorpay(options);
+
+        rzp.on("payment.failed", (response: any) => {
+          toast.error(`Payment Failed: ${response.error.description}`);
+          reject(new Error(response.error.description));
+        });
+
+        rzp.open();
+      });
     } catch (err: any) {
-      // Display the specific error message from the database function
-      toast.error(
-        err.message || "An unexpected error occurred during purchase."
-      );
-      // Optionally re-throw or handle the error further
-      throw err; // Re-throwing allows the calling component to handle it
+      // This will catch errors from script loading or API calls
+      toast.error(err.message || "An unexpected error occurred.");
+      throw err; // Re-throw for the component's 'catch' block
     }
   },
 
