@@ -545,11 +545,9 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  // --- MUTATION ACTIONS ---
-
   purchasePlan: async (planId: string) => {
     const { user, refreshProfile } = useAuthStore.getState();
-    const { plans } = get(); // Get plans from this store
+    const { plans } = get();
 
     if (!user) {
       toast.error("You must be logged in to make a purchase.");
@@ -575,6 +573,14 @@ export const useStudentStore = create<StudentState>((set, get) => ({
           ? "/api/payment/create-order"
           : "/api/payment/create-subscription";
 
+      console.log("Creating payment session:", {
+        endpoint,
+        planId: plan.id,
+        planName: plan.name,
+        planType: plan.type,
+        userId: user.id,
+      });
+
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -583,65 +589,105 @@ export const useStudentStore = create<StudentState>((set, get) => ({
 
       if (!res.ok) {
         const errData = await res.json();
+        console.error("API error:", errData);
         throw new Error(errData.error || "Failed to create payment session.");
       }
 
-      const data = await res.json(); // This is the Razorpay order/subscription object
+      const data = await res.json();
+      console.log("Payment session created:", data);
+
+      // Verify notes contain user_id
+      if (!data.notes?.user_id) {
+        console.warn("⚠️ Warning: user_id not found in payment notes!");
+        console.warn("This may cause webhook processing to fail.");
+      } else {
+        console.log("✅ user_id confirmed in notes:", data.notes.user_id);
+      }
 
       // 3. Open the Razorpay Modal
-      // We wrap this in a Promise to handle success/failure from the modal
       return new Promise<void>((resolve, reject) => {
         const options = {
-          key: process.env.RAZORPAY_KEY_ID!,
-          name: "Mains Cracker", // Replace with your app's name
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+          name: "Mains Cracker",
           description: `Purchase: ${plan.name}`,
           prefill: {
             name: user.full_name || "Student",
             email: user.email,
           },
-          handler: (response: any) => {
-            // Payment successful (optimistic)
-            toast.success(
-              "Payment successful! We are processing your order..."
-            );
+          theme: {
+            color: "#3399cc",
+          },
+          handler: async (response: any) => {
+            console.log("✅ Payment successful:", response);
 
-            setTimeout(() => {
-              get().fetchUserOrders({ force: true });
-              get().fetchUserSubscriptions({ force: true });
-              refreshProfile({ force: true }); // From useAuthStore
-            }, 3000); // 3-second delay
+            toast.success("Payment successful! Processing your order...");
 
-            resolve(); // Resolve the promise on success
+            // Wait for webhook to process, then refresh data
+            setTimeout(async () => {
+              try {
+                console.log("Refreshing user data...");
+                await Promise.all([
+                  get().fetchUserOrders({ force: true }),
+                  get().fetchUserSubscriptions({ force: true }),
+                  refreshProfile({ force: true }),
+                ]);
+
+                toast.success("Your credits have been added!");
+                console.log("✅ Data refreshed successfully");
+              } catch (err) {
+                console.error("Error refreshing data:", err);
+                toast.info(
+                  "Please refresh the page to see your updated credits."
+                );
+              }
+            }, 3000);
+
+            resolve();
           },
           modal: {
             ondismiss: () => {
+              console.log("Payment modal dismissed");
               toast.error("Payment was cancelled.");
-              reject(new Error("Payment cancelled")); // Reject the promise
+              reject(new Error("Payment cancelled"));
             },
+            confirm_close: true,
           },
-          notes: data.notes, // Pass notes from API
+          notes: data.notes,
         };
 
         // Add the correct ID based on plan type
         if (plan.type === "one_time") {
           (options as any).order_id = data.id;
+          console.log(
+            "Opening Razorpay for one-time payment. Order ID:",
+            data.id
+          );
         } else {
           (options as any).subscription_id = data.id;
+          console.log(
+            "Opening Razorpay for subscription. Subscription ID:",
+            data.id
+          );
         }
 
         const rzp = new window.Razorpay(options);
 
         rzp.on("payment.failed", (response: any) => {
-          toast.error(`Payment Failed: ${response.error.description}`);
-          reject(new Error(response.error.description));
+          console.error("❌ Payment failed:", response.error);
+          toast.error(
+            `Payment Failed: ${
+              response.error.description || "Please try again"
+            }`
+          );
+          reject(new Error(response.error.description || "Payment failed"));
         });
 
         rzp.open();
       });
     } catch (err: any) {
-      // This will catch errors from script loading or API calls
+      console.error("❌ Purchase plan error:", err);
       toast.error(err.message || "An unexpected error occurred.");
-      throw err; // Re-throw for the component's 'catch' block
+      throw err;
     }
   },
 

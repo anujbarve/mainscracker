@@ -1,75 +1,156 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers"; // Import cookies
+import { cookies } from "next/headers";
 import Razorpay from "razorpay";
-import { createServerClient } from "@supabase/ssr"; // Import createServerClient
+import { createClient } from "@/utils/server";
 
-// Initialize Razorpay (Make sure your .env variables are correct)
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SC!, // <-- Check this variable name
+  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+  key_secret: process.env.RAZORPAY_KEY_SC!,
 });
 
 export async function POST(req: Request) {
-  try {
-    // 1. Create the server client (CORRECTED)
-    const cookieStore = await cookies(); // This is synchronous, no 'await' needed
+  console.log("\n========================================");
+  console.log("📦 CREATE ORDER API CALLED");
+  console.log("========================================\n");
 
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, // <-- Use ANON_KEY
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options) {
-            cookieStore.set({ name, value: "", ...options });
-          },
-        },
-      }
-    );
+  try {
+    // Check if Razorpay is initialized
+    if (!razorpay) {
+      throw new Error("Razorpay not initialized. Check API keys.");
+    }
+
+    // 1. Create the server client
+    console.log("1️⃣ Creating Supabase client...");
+    const cookieStore = await cookies();
+
+    const supabase = await createClient();
+
+    console.log("✅ Supabase client created");
 
     // 2. Get the authenticated user
-    const { data: { user } } = await supabase.auth.getUser();
+    console.log("2️⃣ Getting authenticated user...");
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError) {
+      console.error("❌ Auth error:", authError);
+      throw authError;
+    }
 
     if (!user) {
+      console.error("❌ No user found");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { planId } = await req.json(); // Supabase plan UUID
+    console.log("✅ User authenticated:", user.id);
 
-    // 3. Fetch plan details
-    const { data: plan, error: planError } = await supabase
-      .from("plans")
-      .select("price, name")
-      .eq("id", planId)
-      .single();
+    // 3. Parse request body
+    console.log("3️⃣ Parsing request body...");
+    const body = await req.json();
+    const { planId } = body;
 
-    if (planError || !plan) {
-      return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+    console.log("Request body:", body);
+
+    if (!planId) {
+      console.error("❌ Missing planId");
+      return NextResponse.json({ error: "Missing planId" }, { status: 400 });
     }
 
-    // 4. Create Razorpay order (Added Number() for safety)
+    console.log("✅ Plan ID:", planId);
+
+    // 4. Fetch plan details
+    console.log("4️⃣ Fetching plan from database...");
+    const { data: plan, error: planError } = await supabase
+      .from("plans")
+      .select("*")
+      .eq("id", planId)
+      .eq("is_active", true)
+      .single();
+
+    if (planError) {
+      console.error("❌ Plan query error:", planError);
+      throw new Error(`Plan query failed: ${planError.message}`);
+    }
+
+    if (!plan) {
+      console.error("❌ Plan not found or inactive");
+      return NextResponse.json(
+        { error: "Plan not found or inactive" },
+        { status: 404 }
+      );
+    }
+
+    console.log("✅ Plan found:", {
+      id: plan.id,
+      name: plan.name,
+      price: plan.price,
+      currency: plan.currency,
+      type: plan.type,
+    });
+
+    // 5. Create Razorpay order
+    console.log("5️⃣ Creating Razorpay order...");
+    
+    const orderAmount = Math.round(Number(plan.price) * 100);
+    console.log("Order amount (paise):", orderAmount);
+
     const options = {
-      amount: Number(plan.price) * 100, // Amount in paise
-      currency: "INR",
-      receipt: `receipt_${user.id}_${planId}`,
+      amount: orderAmount,
+      currency: plan.currency || "INR",
+      receipt: `order_${Date.now()}`,
       notes: {
-        supabase_plan_id: planId, // Vital for the webhook
-        user_id: user.id,          // Vital for the webhook
+        supabase_plan_id: planId,
+        user_id: user.id,
         type: "one_time",
+        plan_name: plan.name,
       },
     };
 
-    const order = await razorpay.orders.create(options);
+    console.log("Razorpay order options:", JSON.stringify(options, null, 2));
 
-    return NextResponse.json({ ...order, planName: plan.name });
+    let order;
+    try {
+      order = await razorpay.orders.create(options);
+      console.log("✅ Razorpay order created:", {
+        id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        status: order.status,
+      });
+    } catch (razorpayError: any) {
+      console.error("❌ Razorpay order creation failed:");
+      console.error("  Status:", razorpayError.statusCode);
+      console.error("  Error:", razorpayError.error);
+      console.error("  Description:", razorpayError.error?.description);
+      throw new Error(
+        `Razorpay error: ${razorpayError.error?.description || razorpayError.message}`
+      );
+    }
+
+    console.log("\n✅ ORDER CREATED SUCCESSFULLY\n");
+
+    return NextResponse.json({
+      id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      notes: order.notes,
+      planName: plan.name,
+    });
   } catch (error: any) {
-    // Log the error on the server for debugging
-    console.error("Error in create-order:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("\n❌❌❌ CREATE ORDER FAILED ❌❌❌");
+    console.error("Error type:", error.constructor.name);
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    console.error("Full error:", JSON.stringify(error, null, 2));
+
+    return NextResponse.json(
+      {
+        error: error.message || "Failed to create order",
+        details: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      },
+      { status: 500 }
+    );
   }
 }
