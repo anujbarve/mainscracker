@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createClient } from "@/utils/client";
 
-import { useAuthStore } from "@/stores/auth";
 
 const supabaseAdmin = createClient();
 
@@ -11,7 +10,6 @@ const WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET!;
 
 export async function POST(req: Request) {
   console.log("=== Razorpay Webhook Received ===");
-  const { user } = useAuthStore.getState();
 
   const rawBody = await req.text();
   const signature = req.headers.get("x-razorpay-signature");
@@ -154,12 +152,12 @@ export async function POST(req: Request) {
         if (!existingSub) {
           console.log("Creating new subscription (first payment)");
 
-          const { data, error } = await supabaseAdmin.rpc("purchase_plan", {
+          const { data, error } = await supabaseAdmin.rpc("payment_purchase_plan", {
             plan_id_in: supabase_plan_id,
             order_status_in: "succeeded",
             payment_charge_id_in: payment.id,
             payment_method_in: payment.method,
-            user_id_in: user.id, // ← Pass user_id
+            user_id_in: user_id, // ← Pass user_id
           });
 
           if (error) {

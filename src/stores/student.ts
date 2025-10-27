@@ -597,7 +597,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       console.log("Payment session created:", data);
 
       // Verify notes contain user_id
-      if (!data.notes?.user_id) {
+      if (!data.notes.user_id) {
         console.warn("⚠️ Warning: user_id not found in payment notes!");
         console.warn("This may cause webhook processing to fail.");
       } else {
