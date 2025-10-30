@@ -3,445 +3,425 @@ import crypto from "crypto";
 import { createClient } from "@/utils/client";
 
 const supabaseAdmin = createClient();
-
 const WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET!;
 
+// ============================================
+// Types
+// ============================================
+interface PaymentNotes {
+  supabase_plan_id?: string;
+  user_id?: string;
+  type?: "one_time" | "subscription";
+}
+
+interface WebhookEvent {
+  event: string;
+  payload: any;
+}
+
+// ============================================
+// Utilities
+// ============================================
+function verifySignature(rawBody: string, signature: string): boolean {
+  const shasum = crypto.createHmac("sha256", WEBHOOK_SECRET);
+  shasum.update(rawBody);
+  const digest = shasum.digest("hex");
+  return digest === signature;
+}
+
+function logEvent(eventType: string, details: Record<string, any>) {
+  console.log(`--- Processing ${eventType} ---`);
+  console.log(JSON.stringify(details, null, 2));
+}
+
+function validateNotes(
+  notes: PaymentNotes | undefined,
+  requiredFields: Array<keyof PaymentNotes>
+): { valid: boolean; error?: string } {
+  if (!notes) {
+    return { valid: false, error: "Missing notes" };
+  }
+
+  for (const field of requiredFields) {
+    if (!notes[field]) {
+      return { valid: false, error: `Missing ${field} in notes` };
+    }
+  }
+
+  return { valid: true };
+}
+
+// ============================================
+// Event Handlers
+// ============================================
+async function handleOneTimePayment(payment: any) {
+  logEvent("payment.captured", {
+    payment_id: payment.id,
+    amount: payment.amount,
+    method: payment.method,
+    notes: payment.notes,
+  });
+
+  const { supabase_plan_id, type, user_id } = payment.notes || {};
+
+  if (type !== "one_time") {
+    console.log("Not a one-time payment, skipping");
+    return;
+  }
+
+  const validation = validateNotes(payment.notes, [
+    "supabase_plan_id",
+    "user_id",
+  ]);
+  if (!validation.valid) {
+    throw new Error(`Invalid payment data: ${validation.error}`);
+  }
+
+  const { data, error } = await supabaseAdmin.rpc("payment_purchase_plan", {
+    plan_id_in: supabase_plan_id,
+    order_status_in: "succeeded",
+    payment_charge_id_in: payment.id,
+    payment_method_in: payment.method,
+    user_id_in: user_id,
+  });
+
+  if (error) {
+    console.error("payment_purchase_plan error:", error);
+    throw error;
+  }
+
+  console.log("✓ One-time payment processed. Order ID:", data);
+}
+
+async function handleInvoicePaid(invoice: any, payment: any) {
+  logEvent("invoice.paid", {
+    invoice_id: invoice.id,
+    subscription_id: invoice.subscription_id,
+    payment_id: payment.id,
+    notes: payment.notes,
+  });
+
+  const razorpay_sub_id = invoice.subscription_id;
+
+  if (!razorpay_sub_id) {
+    console.log("Not a subscription invoice, skipping");
+    return;
+  }
+
+  const { supabase_plan_id, user_id, type } = payment.notes || {};
+
+  if (type !== "subscription") {
+    console.log("Payment type is not 'subscription', skipping");
+    return;
+  }
+
+  const validation = validateNotes(payment.notes, [
+    "supabase_plan_id",
+    "user_id",
+  ]);
+  if (!validation.valid) {
+    throw new Error(`Invalid subscription data: ${validation.error}`);
+  }
+
+  const { data, error } = await supabaseAdmin.rpc("payment_purchase_plan", {
+    plan_id_in: supabase_plan_id,
+    order_status_in: "succeeded",
+    payment_charge_id_in: payment.id,
+    payment_method_in: payment.method,
+    user_id_in: user_id,
+    p_gateway_subscription_id_in: razorpay_sub_id,
+  });
+
+  if (error) {
+    console.error("payment_purchase_plan error:", error);
+    throw error;
+  }
+
+  console.log("✓ Subscription created from invoice.paid. Order ID:", data);
+}
+
+async function handleSubscriptionCharged(subscription: any, payment: any) {
+  logEvent("subscription.charged", {
+    subscription_id: subscription.id,
+    payment_id: payment.id,
+    status: subscription.status,
+    current_start: subscription.current_start,
+    current_end: subscription.current_end,
+    notes: subscription.notes,
+  });
+
+  const { supabase_plan_id, user_id } = subscription.notes || {};
+  const validation = validateNotes(subscription.notes, [
+    "supabase_plan_id",
+    "user_id",
+  ]);
+  if (!validation.valid) {
+    throw new Error(`Invalid subscription data: ${validation.error}`);
+  }
+
+  // Check if subscription exists
+  const { data: existingSub, error: subCheckError } = await supabaseAdmin
+    .from("subscriptions")
+    .select("id, user_id, status, plan_id")
+    .eq("payment_gateway_subscription_id", subscription.id)
+    .maybeSingle();
+
+  if (subCheckError) {
+    console.error("Error checking subscription:", subCheckError);
+    throw subCheckError;
+  }
+
+  // First payment - create subscription
+  if (!existingSub) {
+    console.log("Creating new subscription (first payment)");
+    return await createNewSubscription(
+      supabase_plan_id,
+      user_id,
+      payment,
+      subscription.id
+    );
+  }
+
+  // Renewal payment
+  console.log("Processing subscription renewal");
+  return await renewSubscription(subscription, payment);
+}
+
+async function createNewSubscription(
+  planId: string,
+  userId: string,
+  payment: any,
+  subscriptionId: string
+) {
+  const { data, error } = await supabaseAdmin.rpc("payment_purchase_plan", {
+    plan_id_in: planId,
+    order_status_in: "succeeded",
+    payment_charge_id_in: payment.id,
+    payment_method_in: payment.method,
+    user_id_in: userId,
+    p_gateway_subscription_id_in: subscriptionId,
+  });
+
+  if (error) {
+    console.error("payment_purchase_plan error:", error);
+    throw error;
+  }
+
+  console.log("✓ New subscription created. Order ID:", data);
+}
+
+async function renewSubscription(subscription: any, payment: any) {
+  const { data, error } = await supabaseAdmin.rpc(
+    "fn_handle_subscription_renewal",
+    {
+      p_gateway_subscription_id: subscription.id,
+      p_gateway_payment_id: payment.id,
+      p_payment_method: payment.method,
+      p_new_period_start: new Date(
+        subscription.current_start * 1000
+      ).toISOString(),
+      p_new_period_end: new Date(
+        subscription.current_end * 1000
+      ).toISOString(),
+    }
+  );
+
+  if (error) {
+    console.error("fn_handle_subscription_renewal error:", error);
+    throw error;
+  }
+
+  console.log("✓ Subscription renewed successfully");
+}
+
+async function updateSubscriptionStatus(
+  subscriptionId: string,
+  status: string,
+  additionalFields: Record<string, any> = {}
+) {
+  const { error } = await supabaseAdmin
+    .from("subscriptions")
+    .update({
+      status,
+      updated_at: new Date().toISOString(),
+      ...additionalFields,
+    })
+    .eq("payment_gateway_subscription_id", subscriptionId);
+
+  if (error) {
+    console.error(`Error updating subscription to ${status}:`, error);
+    throw error;
+  }
+
+  console.log(`✓ Subscription ${status} successfully`);
+}
+
+async function handleSubscriptionCancelled(subscription: any) {
+  logEvent("subscription.cancelled", { subscription_id: subscription.id });
+  await updateSubscriptionStatus(subscription.id, "canceled", {
+    canceled_at: new Date().toISOString(),
+  });
+}
+
+async function handleSubscriptionPaused(subscription: any) {
+  logEvent("subscription.paused", { subscription_id: subscription.id });
+  await updateSubscriptionStatus(subscription.id, "paused", {
+    pause_collection: true,
+  });
+}
+
+async function handleSubscriptionResumed(subscription: any) {
+  logEvent("subscription.resumed", { subscription_id: subscription.id });
+  await updateSubscriptionStatus(subscription.id, "active", {
+    pause_collection: false,
+  });
+}
+
+async function handlePaymentAuthorized(payment: any) {
+  logEvent("payment.authorized", {
+    payment_id: payment.id,
+    amount: payment.amount,
+    notes: payment.notes,
+  });
+  console.log("✓ Payment authorized, awaiting capture");
+}
+
+async function handlePaymentFailed(payment: any) {
+  logEvent("payment.failed", {
+    payment_id: payment.id,
+    user_id: payment.notes?.user_id,
+    error_code: payment.error_code,
+    error_description: payment.error_description,
+  });
+  
+  // TODO: Implement payment failure logging
+  // await logPaymentFailure(payment);
+  
+  console.log("✓ Payment failure processed");
+}
+
+async function handleRefundCreated(refund: any) {
+  logEvent("refund.created", {
+    refund_id: refund.id,
+    payment_id: refund.payment_id,
+    amount: refund.amount,
+  });
+  
+  // TODO: Implement refund record creation
+  // await createRefundRecord(refund);
+  
+  console.log("✓ Refund creation processed");
+}
+
+async function handleRefundProcessed(refund: any) {
+  logEvent("refund.processed", {
+    refund_id: refund.id,
+    payment_id: refund.payment_id,
+    amount: refund.amount,
+  });
+  
+  // TODO: Implement refund record update
+  // await updateRefundRecord(refund);
+  
+  console.log("✓ Refund processing completed");
+}
+
+async function handleSubscriptionAuthenticated(subscription: any) {
+  logEvent("subscription.authenticated", {
+    subscription_id: subscription.id,
+    user_id: subscription.notes?.user_id,
+  });
+  console.log("✓ Subscription authentication noted");
+}
+
+async function handleOrderPaid() {
+  logEvent("order.paid", {});
+  console.log("✓ Order paid noted (no action taken to avoid duplicates)");
+}
+
+// ============================================
+// Event Router
+// ============================================
+async function processWebhookEvent(event: WebhookEvent) {
+  const eventType = event.event;
+  const payload = event.payload;
+
+  switch (eventType) {
+    case "payment.captured":
+      return await handleOneTimePayment(payload.payment.entity);
+
+    case "invoice.paid":
+      return await handleInvoicePaid(
+        payload.invoice.entity,
+        payload.payment.entity
+      );
+
+    case "subscription.charged":
+      return await handleSubscriptionCharged(
+        payload.subscription.entity,
+        payload.payment.entity
+      );
+
+    case "subscription.cancelled":
+      return await handleSubscriptionCancelled(payload.subscription.entity);
+
+    case "subscription.paused":
+      return await handleSubscriptionPaused(payload.subscription.entity);
+
+    case "subscription.resumed":
+      return await handleSubscriptionResumed(payload.subscription.entity);
+
+    case "payment.authorized":
+      return await handlePaymentAuthorized(payload.payment.entity);
+
+    case "payment.failed":
+      return await handlePaymentFailed(payload.payment.entity);
+
+    case "refund.created":
+      return await handleRefundCreated(payload.refund.entity);
+
+    case "refund.processed":
+      return await handleRefundProcessed(payload.refund.entity);
+
+    case "subscription.authenticated":
+      return await handleSubscriptionAuthenticated(payload.subscription.entity);
+
+    case "order.paid":
+      return await handleOrderPaid();
+
+    default:
+      console.log(`Unhandled event type: ${eventType}`);
+  }
+}
+
+// ============================================
+// Main Handler
+// ============================================
 export async function POST(req: Request) {
   console.log("=== Razorpay Webhook Received ===");
 
-  const rawBody = await req.text();
-  const signature = req.headers.get("x-razorpay-signature");
-
-  if (!signature) {
-    console.error("No signature provided");
-    return NextResponse.json({ error: "No signature" }, { status: 400 });
-  }
-
-  // 1. Verify the signature
   try {
-    const shasum = crypto.createHmac("sha256", WEBHOOK_SECRET);
-    shasum.update(rawBody);
-    const digest = shasum.digest("hex");
+    // 1. Get raw body and signature
+    const rawBody = await req.text();
+    const signature = req.headers.get("x-razorpay-signature");
 
-    if (digest !== signature) {
+    if (!signature) {
+      console.error("No signature provided");
+      return NextResponse.json({ error: "No signature" }, { status: 400 });
+    }
+
+    // 2. Verify signature
+    if (!verifySignature(rawBody, signature)) {
       console.error("Invalid signature");
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
     console.log("✓ Signature verified");
-  } catch (error) {
-    console.error("Signature verification failed:", error);
-    return NextResponse.json(
-      { error: "Signature verification failed" },
-      { status: 500 }
-    );
-  }
 
-  const event = JSON.parse(rawBody);
-  console.log("Event type:", event.event);
-  console.log("Event payload:", JSON.stringify(event.payload, null, 2));
+    // 3. Parse and process event
+    const event: WebhookEvent = JSON.parse(rawBody);
+    console.log("Event type:", event.event);
 
-  let rpcError;
-
-  // 2. Process the event
-  try {
-    switch (event.event) {
-      // ----------------------------------------------------
-      // CASE 1: One-Time Payment Succeeded
-      // ----------------------------------------------------
-      case "payment.captured": {
-        console.log("--- Processing payment.captured ---");
-        const payment = event.payload.payment.entity;
-        const { supabase_plan_id, type, user_id } = payment.notes || {};
-
-        console.log("Payment details:", {
-          payment_id: payment.id,
-          supabase_plan_id,
-          type,
-          user_id,
-          amount: payment.amount,
-          method: payment.method,
-        });
-
-        if (type !== "one_time") {
-          console.log("Not a one-time payment, skipping");
-          break;
-        }
-
-        if (!supabase_plan_id || !user_id) {
-          console.error("Missing supabase_plan_id or user_id in payment notes");
-          return NextResponse.json(
-            { error: "Invalid payment data" },
-            { status: 400 }
-          );
-        }
-
-        console.log(" USERRRR ID : " + user_id);
-
-        const { data, error } = await supabaseAdmin.rpc("payment_purchase_plan", {
-          plan_id_in: supabase_plan_id,
-          order_status_in: "succeeded",
-          payment_charge_id_in: payment.id,
-          payment_method_in: payment.method,
-          user_id_in: user_id,
-        });
-
-        if (error) {
-          console.error("fn_purchase_plan error:", {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code,
-          });
-          rpcError = error;
-        } else {
-          console.log(
-            "✓ One-time payment processed successfully. Order ID:",
-            data
-          );
-        }
-        break;
-      }
-
-      // ----------------------------------------------------
-      // CASE 2: Subscription Payment Succeeded
-      // ----------------------------------------------------
-      case "subscription.charged": {
-        console.log("--- Processing subscription.charged ---");
-        const subscription = event.payload.subscription.entity;
-        const payment = event.payload.payment.entity;
-        const { supabase_plan_id, user_id } = subscription.notes || {};
-
-        console.log("Subscription details:", {
-          subscription_id: subscription.id,
-          payment_id: payment.id,
-          supabase_plan_id,
-          user_id,
-          status: subscription.status,
-          current_start: subscription.current_start,
-          current_end: subscription.current_end,
-        });
-
-        if (!supabase_plan_id || !user_id) {
-          console.error(
-            "Missing supabase_plan_id or user_id in subscription notes"
-          );
-          return NextResponse.json(
-            { error: "Invalid subscription data" },
-            { status: 400 }
-          );
-        }
-
-        // Check if subscription exists
-        const { data: existingSub, error: subCheckError } = await supabaseAdmin
-          .from("subscriptions")
-          .select("id, user_id, status, plan_id")
-          .eq("payment_gateway_subscription_id", subscription.id)
-          .maybeSingle();
-
-        if (subCheckError) {
-          console.error("Error checking subscription:", subCheckError);
-          rpcError = subCheckError;
-          break;
-        }
-
-        console.log("Existing subscription:", existingSub || "None found");
-
-        // First payment - create subscription
-        if (!existingSub) {
-          console.log("Creating new subscription (first payment)");
-
-        const { data, error } = await supabaseAdmin.rpc("payment_purchase_plan", {
-          plan_id_in: supabase_plan_id,
-          order_status_in: "succeeded",
-          payment_charge_id_in: payment.id,
-          payment_method_in: payment.method,
-          user_id_in: user_id,
-          p_gateway_subscription_id_in: subscription.id // <-- Pass the new param
-        });
-
-          if (error) {
-            console.error("fn_purchase_plan error:", {
-              message: error.message,
-              details: error.details,
-              hint: error.hint,
-              code: error.code,
-            });
-            rpcError = error;
-          } else {
-            console.log(
-              "✓ New subscription created successfully. Order ID:",
-              data
-            );
-          }
-        }
-        // Renewal payment
-        else {
-          console.log("Processing subscription renewal");
-
-          const { data, error } = await supabaseAdmin.rpc(
-            "fn_handle_subscription_renewal",
-            {
-              p_gateway_subscription_id: subscription.id,
-              p_gateway_payment_id: payment.id,
-              p_payment_method: payment.method,
-              p_new_period_start: new Date(
-                subscription.current_start * 1000
-              ).toISOString(),
-              p_new_period_end: new Date(
-                subscription.current_end * 1000
-              ).toISOString(),
-            }
-          );
-
-          if (error) {
-            console.error("fn_handle_subscription_renewal error:", {
-              message: error.message,
-              details: error.details,
-              hint: error.hint,
-              code: error.code,
-            });
-            rpcError = error;
-          } else {
-            console.log("✓ Subscription renewed successfully");
-          }
-        }
-        break;
-      }
-
-      // ----------------------------------------------------
-      // CASE 3: Subscription Cancelled
-      // ----------------------------------------------------
-      case "subscription.cancelled": {
-        console.log("--- Processing subscription.cancelled ---");
-        const subscription = event.payload.subscription.entity;
-
-        const { error } = await supabaseAdmin
-          .from("subscriptions")
-          .update({
-            status: "canceled",
-            canceled_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("payment_gateway_subscription_id", subscription.id);
-
-        if (error) {
-          console.error("Error cancelling subscription:", error);
-          rpcError = error;
-        } else {
-          console.log("✓ Subscription cancelled successfully");
-        }
-        break;
-      }
-
-      // ----------------------------------------------------
-      // CASE 4: Subscription Paused
-      // ----------------------------------------------------
-      case "subscription.paused": {
-        console.log("--- Processing subscription.paused ---");
-        const subscription = event.payload.subscription.entity;
-
-        const { error } = await supabaseAdmin
-          .from("subscriptions")
-          .update({
-            status: "paused",
-            pause_collection: true,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("payment_gateway_subscription_id", subscription.id);
-
-        if (error) {
-          console.error("Error pausing subscription:", error);
-          rpcError = error;
-        } else {
-          console.log("✓ Subscription paused successfully");
-        }
-        break;
-      }
-
-      // ----------------------------------------------------
-      // CASE 5: Subscription Resumed
-      // ----------------------------------------------------
-      case "subscription.resumed": {
-        console.log("--- Processing subscription.resumed ---");
-        const subscription = event.payload.subscription.entity;
-
-        const { error } = await supabaseAdmin
-          .from("subscriptions")
-          .update({
-            status: "active",
-            pause_collection: false,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("payment_gateway_subscription_id", subscription.id);
-
-        if (error) {
-          console.error("Error resuming subscription:", error);
-          rpcError = error;
-        } else {
-          console.log("✓ Subscription resumed successfully");
-        }
-        break;
-      }
-
-      // ----------------------------------------------------
-      // CASE 6: Payment Authorized
-      // ----------------------------------------------------
-      case "payment.authorized": {
-        console.log("--- Processing payment.authorized ---");
-        const payment = event.payload.payment.entity;
-        console.log("Payment authorized details:", {
-          payment_id: payment.id,
-          amount: payment.amount,
-          notes: payment.notes,
-        });
-        // Typically, you wait for 'payment.captured' to fulfill the order.
-        // You might want to update your order status to 'authorized' here
-        // if you create an order record before payment.
-        console.log("✓ Payment authorized, awaiting capture.");
-        break;
-      }
-
-      // ----------------------------------------------------
-      // CASE 7: Payment Failed
-      // ----------------------------------------------------
-      case "payment.failed": {
-        console.log("--- Processing payment.failed ---");
-        const payment = event.payload.payment.entity;
-        const { user_id } = payment.notes || {};
-
-        console.log("Payment failed details:", {
-          payment_id: payment.id,
-          user_id: user_id,
-          error_code: payment.error_code,
-          error_description: payment.error_description,
-        });
-
-        // TODO: Log this failure. You might update an existing order
-        // to 'failed' or log it in a separate 'payment_failures' table.
-        // Example logging to a separate table:
-        /*
-        const { error } = await supabaseAdmin
-          .from("payment_failures") // Assumes you have this table
-          .insert({
-            user_id: user_id || null,
-            payment_id: payment.id,
-            error_code: payment.error_code,
-            error_description: payment.error_description,
-            payload: payment,
-          });
-
-        if (error) {
-          console.error("Error logging payment failure:", error);
-          // Be cautious about failing the webhook for a failed payment log.
-          // rpcError = error; 
-        } else {
-          console.log("✓ Payment failure logged.");
-        }
-        */
-        console.log("✓ Payment failure processed.");
-        break;
-      }
-
-      // ----------------------------------------------------
-      // CASE 8: Subscription Authenticated
-      // ----------------------------------------------------
-      case "subscription.authenticated": {
-        console.log("--- Processing subscription.authenticated ---");
-        const subscription = event.payload.subscription.entity;
-        console.log("Subscription authenticated details:", {
-          subscription_id: subscription.id,
-          user_id: subscription.notes?.user_id,
-        });
-        // This event confirms authentication (e.g., 3D Secure).
-        // Often, no immediate DB action is needed, as 'subscription.charged'
-        // will follow and handle the fulfillment logic.
-        console.log("✓ Subscription authentication noted.");
-        break;
-      }
-
-      // ----------------------------------------------------
-      // CASE 9: Refund Created
-      // ----------------------------------------------------
-      case "refund.created": {
-        console.log("--- Processing refund.created ---");
-        const refund = event.payload.refund.entity;
-        console.log("Refund created details:", {
-          refund_id: refund.id,
-          payment_id: refund.payment_id,
-          amount: refund.amount,
-        });
-
-        // TODO: Create a record for the refund, likely with status 'pending' or 'created'.
-        // Example:
-        /*
-        const { error } = await supabaseAdmin
-          .from("refunds") // Assumes you have this table
-          .insert({
-            refund_id: refund.id,
-            payment_id: refund.payment_id,
-            amount: refund.amount,
-            status: "created",
-            currency: refund.currency,
-            // You'd need a way to link this back to your internal order_id or user_id
-          });
-
-        if (error) {
-          console.error("Error creating refund record:", error);
-          rpcError = error; // You might want this to retry
-        } else {
-          console.log("✓ Refund record created (status: created).");
-        }
-        */
-        console.log("✓ Refund creation processed.");
-        break;
-      }
-
-      // ----------------------------------------------------
-      // CASE 10: Refund Processed
-      // ----------------------------------------------------
-      case "refund.processed": {
-        console.log("--- Processing refund.processed ---");
-        const refund = event.payload.refund.entity;
-        console.log("Refund processed details:", {
-          refund_id: refund.id,
-          payment_id: refund.payment_id,
-          amount: refund.amount,
-        });
-
-        // TODO: Update your refund record to 'processed'
-        // and update the original order to reflect the refund.
-        // Example:
-        /*
-        const { error } = await supabaseAdmin
-          .from("refunds")
-          .update({
-            status: "processed",
-            processed_at: new Date().toISOString(),
-          })
-          .eq("refund_id", refund.id);
-
-        if (error) {
-          console.error("Error updating refund record to processed:", error);
-          rpcError = error;
-        } else {
-          console.log("✓ Refund record updated (status: processed).");
-          // TODO: Update the original order status or user entitlements.
-        }
-        */
-        console.log("✓ Refund processing processed.");
-        break;
-      }
-
-      // ----------------------------------------------------
-      // DEFAULT
-      // ----------------------------------------------------
-      default:
-        console.log(`Unhandled event type: ${event.event}`);
-    }
-
-    if (rpcError) {
-      throw rpcError;
-    }
+    await processWebhookEvent(event);
 
     console.log("=== Webhook processed successfully ===");
     return NextResponse.json({ received: true }, { status: 200 });
@@ -449,6 +429,7 @@ export async function POST(req: Request) {
     console.error("=== Webhook handler failed ===");
     console.error("Error:", error.message);
     console.error("Stack:", error.stack);
+    
     return NextResponse.json(
       { error: `Webhook handler failed: ${error.message}` },
       { status: 500 }
