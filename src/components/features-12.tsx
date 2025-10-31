@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { TextGenerateEffect } from '@/components/ui/text-generate-effect'
 import { BorderBeam } from '@/components/magicui/border-beam'
 import { useHomepageStore, type Feature } from '@/stores/homepage'
+import { useTheme } from 'next-themes' // === 1. IMPORTED useTheme ===
 
 // Icon mapping to convert string names from the DB to actual components
 const iconMap: Record<string, React.ReactNode> = {
@@ -22,12 +23,18 @@ export default function Features() {
     const { data: homepageData, fetchHomepageData } = useHomepageStore()
     const features = homepageData?.features || []
 
+    // === 2. ADDED THEME AND MOUNTED STATE ===
+    const { resolvedTheme } = useTheme()
+    const [mounted, setMounted] = useState(false)
+    // ======================================
+
     const [activeFeature, setActiveFeature] = useState<Feature | null>(null)
     const [userInteracted, setUserInteracted] = useState(false)
 
     // Fetch data on mount
     useEffect(() => {
         fetchHomepageData()
+        setMounted(true) // === 3. SET MOUNTED ===
     }, [fetchHomepageData])
 
     // Set the initial active feature once data is loaded
@@ -55,11 +62,13 @@ export default function Features() {
         setActiveFeature(feature)
     }
 
-    // Don't render the component if there's no data
-    if (!features.length && !homepageData) {
+    // === 4. UPDATED LOADING CHECK ===
+    // Don't render the component if there's no data or not mounted
+    if (!mounted || (!features.length && !homepageData)) {
         // You can add a skeleton loader here if you prefer
         return null
     }
+    // =================================
 
     return (
         <section id="features" className="relative py-20 md:py-28 lg:py-32">
@@ -99,12 +108,14 @@ export default function Features() {
                                     transition={{ duration: 0.4, ease: 'easeOut' }}
                                     className="h-full w-full overflow-hidden rounded-lg"
                                 >
+                                    {/* === 5. UPDATED IMAGE SRC === */}
                                     <Image
-                                        src={activeFeature.image}
+                                        src={resolvedTheme === 'dark' ? activeFeature.imageDark : activeFeature.imageLight}
                                         alt={activeFeature.alt}
                                         width={1207} height={929}
                                         className="size-full rounded-lg object-cover object-left-top shadow-md"
                                     />
+                                    {/* ============================ */}
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -131,6 +142,7 @@ function FeatureCard({
             className={cn('group relative cursor-pointer rounded-xl border border-transparent p-6 transition-all duration-300',
                 isActive
                     ? 'bg-zinc-100/80 dark:bg-zinc-900'
+                    // === 6. Minor visual fix: Added dark:hover:bg-zinc-900/50 ===
                     : 'hover:bg-zinc-100/50 dark:hover:bg-zinc-900/50'
             )}
         >

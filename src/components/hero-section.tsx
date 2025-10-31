@@ -9,6 +9,7 @@ import { ChevronRight, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
 import { useHomepageStore } from '@/stores/homepage'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTheme } from 'next-themes' // === 1. IMPORTED useTheme ===
 
 // A simple skeleton loader for the Hero section
 const HeroSkeleton = () => (
@@ -38,6 +39,11 @@ export default function HeroSection() {
     const { user, profile, fetchUser } = useAuthStore()
     // Homepage store for dynamic content
     const { data: homepageData, loading, fetchHomepageData } = useHomepageStore()
+    
+    // === 2. ADDED THEME AND MOUNTED STATE ===
+    const { resolvedTheme } = useTheme()
+    const [mounted, setMounted] = useState(false)
+    // ======================================
 
     const [currentIndex, setCurrentIndex] = useState(0)
 
@@ -45,6 +51,7 @@ export default function HeroSection() {
     useEffect(() => {
         fetchUser()
         fetchHomepageData()
+        setMounted(true) // === 3. SET MOUNTED ===
     }, [fetchUser, fetchHomepageData])
 
     const heroSlides = homepageData?.heroSlides || []
@@ -71,7 +78,9 @@ export default function HeroSection() {
 
     const submitAnswerPath = getButtonPath()
 
-    if (loading && !homepageData) {
+    // === 4. UPDATED LOADING CHECK ===
+    // Wait until mounted (to check theme) or if still loading data
+    if (!mounted || (loading && !homepageData)) {
         return (
             <section className="relative h-screen w-full overflow-hidden">
                 <div className="absolute inset-0 h-full w-full bg-background bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:36px_36px]"></div>
@@ -79,6 +88,7 @@ export default function HeroSection() {
             </section>
         )
     }
+    // =================================
 
     if (!heroSlides.length) return null // Don't render if there's no data
 
@@ -135,12 +145,14 @@ export default function HeroSection() {
             className="hidden md:block"
         >
             <div className="relative overflow-hidden rounded-2xl shadow-2xl shadow-primary/10">
+                {/* === 5. UPDATED IMAGE SRC === */}
                 <Image
-                    src={currentSlide.imageSrc}
+                    src={resolvedTheme === 'dark' ? currentSlide.imageDark : currentSlide.imageLight}
                     alt={currentSlide.imageAlt}
                     width={1200} height={821} priority
                     className="object-cover"
                 />
+                {/* ============================ */}
                 <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent"></div>
             </div>
         </motion.div>

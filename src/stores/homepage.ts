@@ -12,7 +12,8 @@ import { createClient } from "@/utils/client";
 export type HeroSlide = {
   title: string;
   description: string;
-  imageSrc: string;
+  imageLight: string;
+  imageDark : string;
   imageAlt: string;
   layout: "imageRight" | "imageLeft";
 };
@@ -22,7 +23,8 @@ export type Feature = {
   title:string;
   description: string;
   icon: string;
-  image: string;
+  imageLight: string;
+  imageDark: string;
   alt: string;
 };
 
