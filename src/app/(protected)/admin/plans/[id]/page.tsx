@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useAdminStore } from '@/stores/admin';
+import { useAdminStore } from '@/stores/admin'; // Make sure this path is correct
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,17 +17,44 @@ import { ChevronLeft } from 'lucide-react';
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// ✅ FIX: The schema is simplified to expect numbers directly, removing z.coerce
+// 1. Updated schema with recurring fields and validation
 const planFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
   description: z.string().optional(),
   price: z.number().min(0, "Price cannot be negative."),
   type: z.enum(['one_time', 'recurring']),
+  
+  // Added interval fields
+  interval: z.enum(['daily', 'weekly', 'monthly','quarterly', 'yearly']).optional(),
+  interval_count: z.number().int().min(1, "Count must be at least 1").optional(),
+
   gs_credits_granted: z.number().int().min(0),
   specialized_credits_granted: z.number().int().min(0),
   mentorship_credits_granted: z.number().int().min(0),
   is_active: z.boolean(),
+})
+.superRefine((data, ctx) => {
+  // Matches the database constraint
+  if (data.type === 'recurring') {
+    if (!data.interval) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Interval is required for recurring plans.",
+        path: ['interval'],
+      });
+    }
+    if (!data.interval_count) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Interval count is required for recurring plans.",
+        path: ['interval_count'],
+      });
+    }
+  }
 });
+
+// Export the type so the store can use it
+export type PlanFormData = z.infer<typeof planFormSchema>;
 
 export default function PlanDetailPage() {
   const params = useParams();
@@ -37,19 +64,24 @@ export default function PlanDetailPage() {
 
   const { currentPlan, fetchPlanById, clearCurrentPlan, createPlan, updatePlan, loading } = useAdminStore();
 
-  const form = useForm<z.infer<typeof planFormSchema>>({
+  const form = useForm<PlanFormData>({
     resolver: zodResolver(planFormSchema),
     defaultValues: {
       name: "",
       description: "",
       price: 0,
       type: 'one_time',
+      interval: undefined, // Default to undefined
+      interval_count: 1, // Default to 1
       gs_credits_granted: 0,
       specialized_credits_granted: 0,
       mentorship_credits_granted: 0,
       is_active: true,
     },
   });
+
+  // Watch the 'type' field to conditionally show inputs
+  const planType = form.watch('type');
 
   React.useEffect(() => {
     if (!isCreateMode) {
@@ -63,14 +95,19 @@ export default function PlanDetailPage() {
       form.reset({
         ...currentPlan,
         description: currentPlan.description ?? "",
+        // Handle potential null values from the database
+        interval: currentPlan.interval ?? undefined,
+        interval_count: currentPlan.interval_count ?? 1,
       });
     }
   }, [currentPlan, isCreateMode, form]);
 
-  async function onSubmit(data: z.infer<typeof planFormSchema>) {
+  async function onSubmit(data: PlanFormData) {
+    // Cast to any to satisfy the store's expected parameter type (Partial<Plan>)
+    const payload = data as unknown as any;
     const success = isCreateMode
-      ? await createPlan(data)
-      : await updatePlan(id, data);
+      ? await createPlan(payload)
+      : await updatePlan(id, payload);
     
     if (success) {
       toast.success(`Plan ${isCreateMode ? 'created' : 'updated'} successfully!`);
@@ -108,11 +145,47 @@ export default function PlanDetailPage() {
               <FormField control={form.control} name="description" render={({ field }) => (
                  <FormItem className="md:col-span-2"><FormLabel>Description</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )}/>
+
               <FormField control={form.control} name="type" render={({ field }) => (
                 <FormItem><FormLabel>Plan Type</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="one_time">One-Time</SelectItem><SelectItem value="recurring">Recurring</SelectItem></SelectContent></Select><FormMessage /></FormItem>
               )}/>
+
+              {/* Conditional inputs for recurring plans */}
+              {planType === 'recurring' && (
+                <>
+                  <FormField control={form.control} name="interval" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Interval</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Select interval" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="quarterly">Quarterly</SelectItem>
+                          <SelectItem value="yearly">Yearly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}/>
+                  <FormField control={form.control} name="interval_count" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Interval Count</FormLabel>
+                      <FormControl>
+                        <Input type="number" min="1" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 1)} />
+                      </FormControl>
+                      <FormDescription>
+                        e.g., for "1 month", set Interval to "Month" and Count to "1".
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}/>
+                </>
+              )}
             </CardContent>
           </Card>
+          
           <Card>
             <CardHeader><CardTitle>Credits Granted</CardTitle></CardHeader>
             <CardContent className="grid gap-6 md:grid-cols-3">
@@ -120,7 +193,6 @@ export default function PlanDetailPage() {
                 <FormItem>
                   <FormLabel>GS Credits</FormLabel>
                   <FormControl>
-                    {/* ✅ FIX: Convert string to number on change */}
                     <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
                   </FormControl>
                   <FormMessage />
@@ -130,7 +202,6 @@ export default function PlanDetailPage() {
                 <FormItem>
                   <FormLabel>Specialized Credits</FormLabel>
                   <FormControl>
-                     {/* ✅ FIX: Convert string to number on change */}
                     <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
                   </FormControl>
                   <FormMessage />
@@ -140,7 +211,6 @@ export default function PlanDetailPage() {
                 <FormItem>
                   <FormLabel>Mentorship Credits</FormLabel>
                   <FormControl>
-                     {/* ✅ FIX: Convert string to number on change */}
                     <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
                   </FormControl>
                   <FormMessage />

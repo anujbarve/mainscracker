@@ -16,11 +16,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
+// ✅ NEW: Added CloudLightning
+import { MoreHorizontal, PlusCircle, Trash2, CloudLightning } from "lucide-react";
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar, Tooltip, Legend } from 'recharts';
 import { toast } from "sonner";
 
-// Chart Component
+// Chart Component (No changes)
 const PlanPurchaseChart = () => {
   const { planPurchaseStats, loading } = useAdminStore();
 
@@ -54,7 +55,7 @@ const PlanPurchaseChart = () => {
 };
 
 
-// Main Page Component
+// Main Page Component (No changes)
 export default function PlansPage() {
   const { fetchPlans, fetchPlanPurchaseStats } = useAdminStore();
 
@@ -85,9 +86,10 @@ export default function PlansPage() {
   );
 }
 
-// Data Table Component
+// Data Table Component (✅ UPDATED)
 function DataTable() {
-  const { plans, loading, deletePlan } = useAdminStore();
+  // ✅ NEW: Destructure syncPlanWithGateway
+  const { plans, loading, deletePlan, syncPlanWithGateway } = useAdminStore();
   
   const columns: ColumnDef<Plan>[] = [
     { accessorKey: "name", header: "Name", cell: ({ row }) => (
@@ -98,18 +100,53 @@ function DataTable() {
     { accessorKey: "type", header: "Type", cell: ({ row }) => <Badge variant="secondary" className="capitalize">{row.original.type.replace('_', ' ')}</Badge> },
     { header: "Credits", cell: ({ row }) => `GS: ${row.original.gs_credits_granted}, Spec: ${row.original.specialized_credits_granted}`},
     { accessorKey: "is_active", header: "Status", cell: ({ row }) => row.original.is_active ? <Badge>Active</Badge> : <Badge variant="outline">Inactive</Badge> },
-    { id: "actions", cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <Link href={`/admin/plans/${row.original.id}`}><DropdownMenuItem>Edit</DropdownMenuItem></Link>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive" onClick={() => deletePlan(row.original.id)}>
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+    
+    // ✅ NEW: Show gateway sync status
+    { 
+      accessorKey: "payment_gateway_plan_id", 
+      header: "Gateway Sync", 
+      cell: ({ row }) => {
+        const plan = row.original;
+        if (plan.type === 'one_time') {
+          return <Badge variant="outline">N/A</Badge>;
+        }
+        return plan.payment_gateway_plan_id ? <Badge variant="default">Synced</Badge> : <Badge variant="destructive">Not Synced</Badge>;
+      }
+    },
+    
+    // ✅ NEW: Updated actions cell
+    { 
+      id: "actions", 
+      cell: ({ row }) => {
+        const plan = row.original;
+        const isSyncing = loading[`plan_sync_${plan.id}`];
+
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <Link href={`/admin/plans/${plan.id}`}><DropdownMenuItem>Edit</DropdownMenuItem></Link>
+              
+              {/* --- THIS IS THE NEW PART --- */}
+              {plan.type === 'recurring' && !plan.payment_gateway_plan_id && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => syncPlanWithGateway(plan.id)} disabled={isSyncing}>
+                    <CloudLightning className="mr-2 h-4 w-4" />
+                    {isSyncing ? "Syncing..." : "Sync with Gateway"}
+                  </DropdownMenuItem>
+                </>
+              )}
+              {/* --- END OF NEW PART --- */}
+              
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive" onClick={() => deletePlan(plan.id)}>
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
   ];
 
@@ -126,7 +163,23 @@ function DataTable() {
       <CardContent>
         <div className="rounded-md border">
           <Table>
-            <TableHeader>{/* ... table header rendering ... */}</TableHeader>
+            {/* ✅ NEW: Filled in TableHeader */}
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
             <TableBody>
               {loading.plans ? (
                  Array.from({ length: 5 }).map((_, i) => <TableRow key={i}>{columns.map((c, j) => <TableCell key={j}><Skeleton className="h-6 w-full" /></TableCell>)}</TableRow>)

@@ -250,12 +250,15 @@ export type CurrentSupportTicket = {
 };
 
 export type Plan = {
+  interval_count: number;
+  interval: undefined;
   id: string;
   name: string;
   description: string | null;
   price: number;
   currency: string;
   type: "one_time" | "recurring";
+  payment_gateway_plan_id: string | null; // <-- Add this field
   gs_credits_granted: number;
   specialized_credits_granted: number;
   mentorship_credits_granted: number;
@@ -373,7 +376,6 @@ type AdminState = {
   lastFetched: Record<string, number | null>;
   error: string | null;
 
-
   // --- ACTIONS ---
 
   //region ------------------- GENERAL & UI ACTIONS -------------------
@@ -398,11 +400,21 @@ type AdminState = {
   /** Fetches the main statistics for the admin dashboard. */
   fetchDashboardStats: (options?: FetchOptions) => Promise<void>;
   /** Fetches revenue data over a specified time period. */
-  fetchRevenueData: (periodType: "daily" | "weekly" | "monthly", daysLimit: number, options?: FetchOptions) => Promise<void>;
+  fetchRevenueData: (
+    periodType: "daily" | "weekly" | "monthly",
+    daysLimit: number,
+    options?: FetchOptions
+  ) => Promise<void>;
   /** Fetches performance data for subscription plans. */
-  fetchPlanPerformance: (daysLimit: number, options?: FetchOptions) => Promise<void>;
+  fetchPlanPerformance: (
+    daysLimit: number,
+    options?: FetchOptions
+  ) => Promise<void>;
   /** Fetches data on credit purchases vs. consumption. */
-  fetchCreditEconomyData: (daysLimit: number, options?: FetchOptions) => Promise<void>;
+  fetchCreditEconomyData: (
+    daysLimit: number,
+    options?: FetchOptions
+  ) => Promise<void>;
   /** Fetches weekly trends of credit purchases and consumption. */
   fetchCreditEconomyTrends: (options?: FetchOptions) => Promise<void>;
   /** Fetches statistics on how many times each plan has been purchased. */
@@ -412,7 +424,10 @@ type AdminState = {
   /** Fetches a single report by its ID. */
   fetchReportById: (reportId: string) => Promise<void>;
   /** Triggers the generation of a new report. */
-  generateReport: (name: string, parameters: Report["parameters"]) => Promise<Report | null>;
+  generateReport: (
+    name: string,
+    parameters: Report["parameters"]
+  ) => Promise<Report | null>;
   //endregion
 
   //region ------------------- USER MANAGEMENT -------------------
@@ -427,22 +442,41 @@ type AdminState = {
   /** Fetches a faculty member's current workload statistics. */
   fetchFacultyWorkloadById: (id: string) => Promise<void>;
   /** Creates a new user (student or faculty) in the system. */
-  createUser: (email: string, password: string, profileData: ProfileUpsertData) => Promise<string | null>;
+  createUser: (
+    email: string,
+    password: string,
+    profileData: ProfileUpsertData
+  ) => Promise<string | null>;
   /** Updates a user's profile information. */
-  updateProfile: (userId: string, data: Partial<AdminProfile>) => Promise<boolean>;
+  updateProfile: (
+    userId: string,
+    data: Partial<AdminProfile>
+  ) => Promise<boolean>;
   /** Changes a user's password. */
   changePassword: (userId: string, newPassword: string) => Promise<boolean>;
   /** Permanently deletes a user from the system. */
   deleteUser: (userId: string) => Promise<boolean>;
   /** Adjusts a user's credit balance manually. */
-  adjustUserCredits: (userId: string, creditType: string, amount: number, reason: string) => Promise<boolean>;
+  adjustUserCredits: (
+    userId: string,
+    creditType: string,
+    amount: number,
+    reason: string
+  ) => Promise<boolean>;
   /** Sends a notification to a specific user. */
-  sendNotification: (userId: string, title: string, message: string) => Promise<boolean>;
+  sendNotification: (
+    userId: string,
+    title: string,
+    message: string
+  ) => Promise<boolean>;
   //endregion
 
   //region ------------------- ANSWER MANAGEMENT -------------------
   /** Fetches a list of answers, optionally filtered by status. */
-  fetchAnswers: (statusFilter?: AnswerStatus, options?: FetchOptions) => Promise<void>;
+  fetchAnswers: (
+    statusFilter?: AnswerStatus,
+    options?: FetchOptions
+  ) => Promise<void>;
   /** Fetches a single answer by its ID. */
   fetchAnswerById: (id: string) => Promise<void>;
   /** Reassigns an answer to a different faculty member. */
@@ -457,20 +491,34 @@ type AdminState = {
   /** Fetches a single mentorship session by its ID. */
   fetchMentorshipSessionById: (sessionId: string) => Promise<void>;
   /** Updates the details of a mentorship session (e.g., assigns a mentor, changes status). */
-  updateMentorshipSession: (sessionId: string, data: Partial<MentorshipSessionWithDetails>) => Promise<boolean>;
+  updateMentorshipSession: (
+    sessionId: string,
+    data: Partial<MentorshipSessionWithDetails>
+  ) => Promise<boolean>;
   /** Cancels a mentorship session. */
-  cancelMentorshipSession: (sessionId: string, reason: string) => Promise<boolean>;
+  cancelMentorshipSession: (
+    sessionId: string,
+    reason: string
+  ) => Promise<boolean>;
   //endregion
 
   //region ------------------- PLANS & SUBJECTS MANAGEMENT -------------------
   /** Fetches all subscription plans. */
-  fetchPlans: (includeInactive?: boolean, options?: FetchOptions) => Promise<void>;
+  fetchPlans: (
+    includeInactive?: boolean,
+    options?: FetchOptions
+  ) => Promise<void>;
   /** Fetches a single plan by its ID. */
   fetchPlanById: (planId: string) => Promise<void>;
   /** Creates a new subscription plan. */
   createPlan: (data: any) => Promise<boolean>;
   /** Updates an existing subscription plan. */
   updatePlan: (planId: string, data: Partial<Plan>) => Promise<boolean>;
+
+  // ✅ NEW: Action to sync a recurring plan with Razorpay
+  /** Syncs a recurring plan with the payment gateway (e.g., Razorpay). */
+  syncPlanWithGateway: (planId: string) => Promise<boolean>;
+
   /** Deletes a subscription plan. */
   deletePlan: (planId: string) => Promise<boolean>;
   /** Fetches all subjects. */
@@ -478,18 +526,29 @@ type AdminState = {
   /** Creates a new subject. */
   createSubject: (data: Omit<Subject, "id">) => Promise<boolean>;
   /** Updates an existing subject. */
-  updateSubject: (subjectId: string, data: Partial<Subject>) => Promise<boolean>;
+  updateSubject: (
+    subjectId: string,
+    data: Partial<Subject>
+  ) => Promise<boolean>;
   /** Deletes a subject. */
   deleteSubject: (subjectId: string) => Promise<boolean>;
   //endregion
 
   //region ------------------- FINANCIAL & LOGS -------------------
   /** Fetches orders with pagination and filtering. */
-  fetchPaginatedOrders: (page: number, pageSize: number, filters: { status?: string }) => Promise<void>;
+  fetchPaginatedOrders: (
+    page: number,
+    pageSize: number,
+    filters: { status?: string }
+  ) => Promise<void>;
   /** Fetches a single order and its associated transactions by ID. */
   fetchOrderById: (orderId: string) => Promise<void>;
   /** Fetches credit transaction logs with pagination and filtering. */
-  fetchPaginatedCreditTxs: (page: number, pageSize: number, filters: { type?: string }) => Promise<void>;
+  fetchPaginatedCreditTxs: (
+    page: number,
+    pageSize: number,
+    filters: { type?: string }
+  ) => Promise<void>;
   /** Fetches a list of all credit transactions (for non-paginated views). */
   fetchCreditLogs: (limit?: number, options?: FetchOptions) => Promise<void>;
   /** Fetches the audit logs for administrative actions. */
@@ -498,15 +557,23 @@ type AdminState = {
 
   //region ------------------- SUPPORT SYSTEM -------------------
   /** Fetches support tickets, optionally filtered by status. */
-  fetchSupportTickets: (statusFilter?: SupportTicketStatus, options?: FetchOptions) => Promise<void>;
+  fetchSupportTickets: (
+    statusFilter?: SupportTicketStatus,
+    options?: FetchOptions
+  ) => Promise<void>;
   /** Fetches a single support ticket and its messages by ID. */
   fetchSupportTicketById: (ticketId: string) => Promise<void>;
   /** Updates a support ticket's details (e.g., status, assignee). */
-  updateSupportTicket: (ticketId: string, data: Partial<SupportTicketWithDetails>) => Promise<boolean>;
+  updateSupportTicket: (
+    ticketId: string,
+    data: Partial<SupportTicketWithDetails>
+  ) => Promise<boolean>;
   /** Adds a new message reply to a support ticket. */
-  addSupportTicketMessage: (ticketId: string, message: string) => Promise<boolean>;
+  addSupportTicketMessage: (
+    ticketId: string,
+    message: string
+  ) => Promise<boolean>;
   //endregion
-
 
   // ✅ NEW: Region for settings management actions
   //region ------------------- SETTINGS MANAGEMENT -------------------
@@ -515,7 +582,10 @@ type AdminState = {
   /** Fetches a single system setting by its ID. */
   fetchSystemSettingById: (id: string) => Promise<void>;
   /** Updates an existing system setting. */
-  updateSystemSetting: (id: string, data: Partial<Pick<SystemSetting, 'settings_data' | 'description'>>) => Promise<boolean>;
+  updateSystemSetting: (
+    id: string,
+    data: Partial<Pick<SystemSetting, "settings_data" | "description">>
+  ) => Promise<boolean>;
   //endregion
 };
 
@@ -966,10 +1036,16 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         .eq("id", userId);
       if (error) throw error;
       toast.success("Profile updated successfully.");
-      if (data.role === "student" || get().students?.some((s) => s.id === userId)) {
+      if (
+        data.role === "student" ||
+        get().students?.some((s) => s.id === userId)
+      ) {
         get().fetchStudents({ force: true });
       }
-      if (data.role === "faculty" || get().faculty?.some((f) => f.id === userId)) {
+      if (
+        data.role === "faculty" ||
+        get().faculty?.some((f) => f.id === userId)
+      ) {
         get().fetchFaculty({ force: true });
       }
       return true;
@@ -1047,7 +1123,9 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       const supabase = createClient();
       const { error } = await supabase
         .from("notifications")
-        .insert([{ user_id: userId, title, message, type: "admin_credit_adjustment" }]);
+        .insert([
+          { user_id: userId, title, message, type: "admin_credit_adjustment" },
+        ]);
       if (error) throw error;
       toast.success("Notification sent.");
       return true;
@@ -1321,12 +1399,28 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     get().setLoading("plans", true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.from("plans").insert([data]);
-      if (error) throw error;
+
+      // Prepare the data for insertion
+      const planData = { ...data };
+
+      // If the plan is 'one_time', nullify the interval fields
+      // to match the database constraints
+      if (planData.type === "one_time") {
+        planData.interval = null;
+        planData.interval_count = null;
+      }
+
+      const { error } = await supabase.from("plans").insert([planData]);
+
+      if (error) {
+        throw error;
+      }
+
       toast.success("Plan created successfully.");
-      get().fetchPlans(true, { force: true });
+      get().fetchPlans(true, { force: true }); // Refresh the plans list
       return true;
     } catch (err: any) {
+      console.error("Error creating plan:", err);
       toast.error(err.message || "Failed to create plan.");
       return false;
     } finally {
@@ -1334,23 +1428,61 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
 
-  updatePlan: async (planId, data) => {
-    get().setLoading("plans", true);
+  updatePlan: async (id: string, data : any) => {
+    get().setLoading("currentPlan", true);
     try {
       const supabase = createClient();
+
+      const planData = { ...data };
+      if (planData.type === 'one_time') {
+        planData.interval = null;
+        planData.interval_count = null;
+      }
+
       const { error } = await supabase
         .from("plans")
-        .update(data)
-        .eq("id", planId);
-      if (error) throw error;
+        .update(planData)
+        .eq("id", id);
+      
+      if (error) {
+        throw error;
+      }
+
       toast.success("Plan updated successfully.");
-      get().fetchPlans(true, { force: true });
+      get().fetchPlans(true, { force: true }); // Refresh the plans list
       return true;
     } catch (err: any) {
+      console.error("Error updating plan:", err);
       toast.error(err.message || "Failed to update plan.");
       return false;
     } finally {
-      get().setLoading("plans", false);
+      get().setLoading("currentPlan", false);
+    }
+  },
+
+  syncPlanWithGateway: async (planId) => {
+    get().setLoading(`plan_sync_${planId}`, true);
+    try {
+      const response = await fetch("/api/admin/sync-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to sync plan.");
+      }
+
+      toast.success("Plan synced with payment gateway successfully!");
+      // Refresh the plans list to show the new payment_gateway_plan_id
+      get().fetchPlans(true, { force: true });
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to sync plan.");
+      return false;
+    } finally {
+      get().setLoading(`plan_sync_${planId}`, false);
     }
   },
 
@@ -1644,7 +1776,9 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
   //region ------------------- SUPPORT SYSTEM -------------------
   fetchSupportTickets: async (statusFilter, options) => {
-    const cacheKey = statusFilter ? `supportTickets_${statusFilter}` : "supportTickets";
+    const cacheKey = statusFilter
+      ? `supportTickets_${statusFilter}`
+      : "supportTickets";
     const { supportTickets, lastFetched } = get();
     if (
       !options?.force &&

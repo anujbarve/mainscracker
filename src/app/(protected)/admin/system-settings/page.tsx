@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useFormContext, Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
@@ -13,20 +13,26 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, useFormField } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, Trash2 } from "lucide-react";
+import { PlusCircle, Trash2, Loader2, UploadCloud, File as FileIcon } from "lucide-react";
+
+// IMPORTANT: Adjust this path if your client creation utility is located elsewhere
+import { createClient } from "@/utils/client";
 
 //=============================================================================
-// 1. TYPE DEFINITIONS & ZOD SCHEMAS
+// 1. TYPE DEFINITIONS & ZOD SCHEMAS (=== UPDATED ===)
 //=============================================================================
 
 // Hero Slides
 const heroSlideSchema = z.object({
   title: z.string().min(3, "Title is required."),
   description: z.string().min(10, "Description is required."),
-  imageSrc: z.string(),
+  // === UPDATED: Replaced imageSrc with imageLight and imageDark ===
+  imageLight: z.string().min(1, "Light mode image is required."),
+  imageDark: z.string().min(1, "Dark mode image is required."),
+  // ===============================================================
   imageAlt: z.string().min(3, "Image alt text is required."),
   layout: z.enum(["imageRight", "imageLeft"]),
 });
@@ -40,7 +46,10 @@ const featureSchema = z.object({
   id: z.string().min(2, "ID is required."),
   title: z.string().min(3, "Title is required."),
   description: z.string().min(10, "Description is required."),
-  image: z.string(),
+  // === UPDATED: Replaced image with imageLight and imageDark ===
+  imageLight: z.string().min(1, "Light mode image is required."),
+  imageDark: z.string().min(1, "Dark mode image is required."),
+  // ============================================================
   alt: z.string().min(3, "Image alt text is required."),
   icon: z.string().optional(),
 });
@@ -54,8 +63,11 @@ const samplePaperSchema = z.object({
     id: z.string().min(2, "ID is required."),
     title: z.string().min(3, "Title is required."),
     description: z.string().min(10, "Description is required."),
-    link: z.string().min(1, "Link is required."),
-    previewImage: z.string().url("Must be a valid URL or path."),
+    link: z.string().min(1, "File link is required."),
+    // === UPDATED: Replaced previewImage with light/dark variants ===
+    previewImageLight: z.string().min(1, "Light preview image is required."),
+    previewImageDark: z.string().min(1, "Dark preview image is required."),
+    // ==============================================================
 });
 const samplePapersFormSchema = z.object({
     settings_data: z.array(samplePaperSchema),
@@ -67,7 +79,8 @@ const testimonialSchema = z.object({
   name: z.string().min(2, "Name is required."),
   role: z.string().min(3, "Role is required."),
   quote: z.string().min(15, "Quote must be at least 15 characters."),
-  image: z.string().url("Must be a valid URL."),
+  // Back to a single image field
+  image: z.string().min(1, "Image is required."),
 });
 const testimonialsFormSchema = z.object({
   settings_data: z.array(testimonialSchema),
@@ -75,8 +88,232 @@ const testimonialsFormSchema = z.object({
 type TestimonialsFormValues = z.infer<typeof testimonialsFormSchema>;
 
 //=============================================================================
-// 2. LIVE PREVIEW COMPONENTS
+// 2. NEW UPLOAD COMPONENTS (=== UPDATED ===)
 //=============================================================================
+
+const STORAGE_BUCKET = "homepage-assets"; // The public bucket you created
+
+/**
+ * A reusable component for uploading images to Supabase Storage
+ * and integrating with react-hook-form.
+ * * === UPDATED: Now deletes the old file from storage upon successful replacement ===
+ */
+interface ImageUploadFieldProps {
+  control: Control<any>;
+  name: string;
+  label: string;
+}
+
+function ImageUploadField({ control, name, label }: ImageUploadFieldProps) {
+  const [isUploading, setIsUploading] = React.useState(false);
+  const form = useFormContext(); // Get the form instance
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // === UPDATED: Get the old URL before uploading ===
+    const oldUrl = form.getValues(name) as string | undefined;
+    // ================================================
+
+    setIsUploading(true);
+    const supabase = createClient();
+    const fileName = `${Date.now()}-${file.name}`;
+    const filePath = `public/${fileName}`; // Path inside your bucket
+
+    try {
+      // 1. Upload new file
+      const { error: uploadError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Get new public URL
+      const { data: publicUrlData } = supabase.storage
+        .from(STORAGE_BUCKET)
+        .getPublicUrl(filePath);
+
+      if (!publicUrlData.publicUrl) {
+          throw new Error("Could not get public URL.");
+      }
+
+      // 3. Update form
+      form.setValue(name, publicUrlData.publicUrl, { shouldValidate: true, shouldDirty: true });
+      toast.success("Image uploaded successfully!");
+
+      // 4. === UPDATED: Delete old file (if it exists) ===
+      if (oldUrl && oldUrl !== publicUrlData.publicUrl) {
+        const oldFilePath = oldUrl.split(`/${STORAGE_BUCKET}/`)[1];
+        if (oldFilePath) {
+          try {
+            await supabase.storage.from(STORAGE_BUCKET).remove([oldFilePath]);
+            console.log("Successfully deleted old image:", oldFilePath);
+          } catch (deleteError) {
+            console.warn("Failed to delete old image:", deleteError);
+            toast.warning("New image saved, but failed to remove old one.");
+          }
+        }
+      }
+      // ===================================================
+
+    } catch (error: any) {
+      console.error("Error uploading image:", error);
+      toast.error(error.message || "Failed to upload image.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <FormField
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{label}</FormLabel>
+          <FormControl>
+            <div className="flex items-center gap-4">
+              {field.value ? (
+                <Image
+                  src={field.value}
+                  alt="Preview"
+                  width={80}
+                  height={80}
+                  className="rounded-lg object-cover aspect-square"
+                />
+              ) : (
+                <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center">
+                  <UploadCloud className="w-8 h-8 text-muted-foreground" />
+                </div>
+              )}
+              <Input
+                type="file"
+                accept="image/png, image/jpeg, image/webp, image/gif"
+                onChange={handleFileUpload}
+                disabled={isUploading}
+                className="flex-1"
+              />
+              {isUploading && <Loader2 className="w-5 h-5 animate-spin" />}
+            </div>
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
+/**
+ * A reusable component for uploading general files (like PDFs) to Supabase Storage.
+ *
+ * === UPDATED: Now deletes the old file from storage upon successful replacement ===
+ */
+interface FileUploadFieldProps {
+  control: Control<any>;
+  name: string;
+  label: string;
+  accept?: string;
+}
+
+function FileUploadField({ control, name, label, accept = "application/pdf" }: FileUploadFieldProps) {
+  const [isUploading, setIsUploading] = React.useState(false);
+  const form = useFormContext();
+  useFormField(); // Get field state
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // === UPDATED: Get the old URL before uploading ===
+    const oldUrl = form.getValues(name) as string | undefined;
+    // ================================================
+
+    setIsUploading(true);
+    const supabase = createClient();
+    const fileName = `${Date.now()}-${file.name}`;
+    const filePath = `public/files/${fileName}`; // Different subfolder for organization
+
+    try {
+      // 1. Upload new file
+      const { error: uploadError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Get new public URL
+      const { data: publicUrlData } = supabase.storage
+        .from(STORAGE_BUCKET)
+        .getPublicUrl(filePath);
+        
+      if (!publicUrlData.publicUrl) {
+          throw new Error("Could not get public URL.");
+      }
+
+      // 3. Update form
+      form.setValue(name, publicUrlData.publicUrl, { shouldValidate: true, shouldDirty: true });
+      toast.success("File uploaded successfully!");
+
+      // 4. === UPDATED: Delete old file (if it exists) ===
+      if (oldUrl && oldUrl !== publicUrlData.publicUrl) {
+        const oldFilePath = oldUrl.split(`/${STORAGE_BUCKET}/`)[1];
+        if (oldFilePath) {
+          try {
+            await supabase.storage.from(STORAGE_BUCKET).remove([oldFilePath]);
+            console.log("Successfully deleted old file:", oldFilePath);
+          } catch (deleteError) {
+            console.warn("Failed to delete old file:", deleteError);
+            toast.warning("New file saved, but failed to remove old one.");
+          }
+        }
+      }
+      // ===================================================
+
+    } catch (error: any) {
+      console.error("Error uploading file:", error);
+      toast.error(error.message || "Failed to upload file.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <FormField
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{label}</FormLabel>
+          <FormControl>
+            <div className="flex items-center gap-4">
+              <Input
+                type="file"
+                accept={accept}
+                onChange={handleFileUpload}
+                disabled={isUploading}
+              />
+              {isUploading && <Loader2 className="w-5 h-5 animate-spin" />}
+            </div>
+          </FormControl>
+           {field.value && (
+            <p className="text-sm text-muted-foreground">
+              Current file: <a href={field.value} target="_blank" rel="noopener noreferrer" className="text-primary underline">{field.value.split('/').pop()}</a>
+            </p>
+          )}
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
+//=============================================================================
+// 3. LIVE PREVIEW COMPONENTS (=== UPDATED ===)
+//=============================================================================
+
+// === UPDATED: Previews will now just show the "Light Mode" image for simplicity ===
+// The form itself is the source of truth for both light/dark images.
 
 function HeroSlidesPreview({ slides }: { slides: z.infer<typeof heroSlideSchema>[] }) {
   return (
@@ -90,7 +327,8 @@ function HeroSlidesPreview({ slides }: { slides: z.infer<typeof heroSlideSchema>
               <p className="text-sm text-muted-foreground">{slide.description || "[Description]"}</p>
             </div>
             <div className="flex-1 relative aspect-video w-full bg-slate-200 rounded">
-              {slide.imageSrc && <Image src={slide.imageSrc} alt={slide.imageAlt} layout="fill" objectFit="cover" className="rounded" />}
+              {/* === UPDATED: Show light image === */}
+              {slide.imageLight && <Image src={slide.imageLight} alt={slide.imageAlt || 'preview'} layout="fill" objectFit="cover" className="rounded" />}
             </div>
           </div>
         ))}
@@ -109,7 +347,8 @@ function FeaturesPreview({ features }: { features: z.infer<typeof featureSchema>
                     {(features || []).map((feature, index) => (
                         <div key={index} className="flex items-start gap-4 p-4 border rounded-lg">
                             <div className="relative h-24 w-24 bg-slate-200 rounded-lg shrink-0">
-                                {feature.image && <Image src={feature.image} alt={feature.alt} layout="fill" objectFit="contain" className="rounded p-2" />}
+                                {/* === UPDATED: Show light image === */}
+                                {feature.imageLight && <Image src={feature.imageLight} alt={feature.alt || 'preview'} layout="fill" objectFit="contain" className="rounded p-2" />}
                             </div>
                             <div className="space-y-1">
                                 <h4 className="font-semibold">{feature.title || "[Feature Title]"}</h4>
@@ -134,6 +373,7 @@ function TestimonialsPreview({ testimonials }: { testimonials: z.infer<typeof te
             <p className="text-muted-foreground mb-4">"{testimonial.quote || "[Quote...]"}"</p>
             <div className="flex items-center gap-3">
               <div className="relative h-10 w-10 bg-slate-200 rounded-full">
+                {/* Updated: Pointing back to the single 'image' field */}
                 {testimonial.image && <Image src={testimonial.image} alt={testimonial.name || 'avatar'} layout="fill" className="rounded-full" />}
               </div>
               <div>
@@ -158,7 +398,8 @@ function SamplePapersPreview({ papers }: { papers: z.infer<typeof samplePaperSch
                      {(papers || []).map((paper, index) => (
                         <div key={index} className="border rounded-lg overflow-hidden group">
                             <div className="relative aspect-video bg-slate-200">
-                                {paper.previewImage && <Image src={paper.previewImage} alt={`Preview for ${paper.title}`} layout="fill" objectFit="cover" />}
+                                {/* === UPDATED: Show light image === */}
+                                {paper.previewImageLight && <Image src={paper.previewImageLight} alt={`Preview for ${paper.title}`} layout="fill" objectFit="cover" />}
                             </div>
                             <div className="p-3">
                                 <h4 className="font-semibold truncate">{paper.title || "[Title]"}</h4>
@@ -174,7 +415,7 @@ function SamplePapersPreview({ papers }: { papers: z.infer<typeof samplePaperSch
 }
 
 //=============================================================================
-// 3. DEDICATED MANAGER COMPONENTS
+// 4. DEDICATED MANAGER COMPONENTS (=== UPDATED ===)
 //=============================================================================
 
 //--- Hero Slides Manager ---//
@@ -216,16 +457,31 @@ function HeroSlidesManager() {
                 <div key={field.id} className="border rounded-lg p-4 space-y-4 relative">
                   <h4 className="font-semibold">Slide {index + 1}</h4>
                   <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
+                  
                   <FormField control={form.control} name={`settings_data.${index}.title`} render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                  
                   <FormField control={form.control} name={`settings_data.${index}.description`} render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField control={form.control} name={`settings_data.${index}.imageSrc`} render={({ field }) => (<FormItem><FormLabel>Image URL</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name={`settings_data.${index}.imageAlt`} render={({ field }) => (<FormItem><FormLabel>Image Alt Text</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  </div>
+                  
+                  {/* === UPDATED: Added fields for light and dark images === */}
+                  <ImageUploadField 
+                    control={form.control}
+                    name={`settings_data.${index}.imageLight`}
+                    label="Hero Image (Light Mode)"
+                  />
+                  <ImageUploadField 
+                    control={form.control}
+                    name={`settings_data.${index}.imageDark`}
+                    label="Hero Image (Dark Mode)"
+                  />
+                  {/* ======================================================= */}
+
+                  <FormField control={form.control} name={`settings_data.${index}.imageAlt`} render={({ field }) => (<FormItem><FormLabel>Image Alt Text</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+
                   <FormField control={form.control} name={`settings_data.${index}.layout`} render={({ field }) => (<FormItem><FormLabel>Layout</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="imageRight">Image on Right</SelectItem><SelectItem value="imageLeft">Image on Left</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                 </div>
               ))}
-              <Button type="button" variant="outline" onClick={() => append({ title: "", description: "", imageSrc: "https://placehold.co/600x400", imageAlt: "", layout: "imageRight" })} className="w-full">
+              {/* === UPDATED: `append` now includes light/dark fields === */}
+              <Button type="button" variant="outline" onClick={() => append({ title: "", description: "", imageLight: "", imageDark: "", imageAlt: "", layout: "imageRight" })} className="w-full">
                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Slide
               </Button>
             </CardContent>
@@ -240,7 +496,6 @@ function HeroSlidesManager() {
   );
 }
 
-//--- Features Manager ---//
 //--- Features Manager ---//
 function FeaturesManager() {
   const settingId = 'homepage_features';
@@ -285,15 +540,26 @@ function FeaturesManager() {
                    
                    <FormField control={form.control} name={`settings_data.${index}.description`} render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)} />
 
-                   <div className="grid grid-cols-2 gap-4">
-                      <FormField control={form.control} name={`settings_data.${index}.image`} render={({ field }) => (<FormItem><FormLabel>Image URL</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name={`settings_data.${index}.alt`} render={({ field }) => (<FormItem><FormLabel>Image Alt Text</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                   </div>
+                   {/* === UPDATED: Added fields for light and dark images === */}
+                    <ImageUploadField
+                      control={form.control}
+                      name={`settings_data.${index}.imageLight`}
+                      label="Feature Icon/Image (Light Mode)"
+                    />
+                    <ImageUploadField
+                      control={form.control}
+                      name={`settings_data.${index}.imageDark`}
+                      label="Feature Icon/Image (Dark Mode)"
+                    />
+                   {/* ======================================================= */}
+                  
+                  <FormField control={form.control} name={`settings_data.${index}.alt`} render={({ field }) => (<FormItem><FormLabel>Image Alt Text</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
                    
                    <FormField control={form.control} name={`settings_data.${index}.id`} render={({ field }) => (<FormItem><FormLabel>Unique ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
               ))}
-               <Button type="button" variant="outline" onClick={() => append({ id: "new-feature", title: "", description: "", image: "https://placehold.co/400x400", alt: "", icon: "UserCheck" })} className="w-full">
+              {/* === UPDATED: `append` now includes light/dark fields === */}
+               <Button type="button" variant="outline" onClick={() => append({ id: "new-feature", title: "", description: "", imageLight: "", imageDark: "", alt: "", icon: "UserCheck" })} className="w-full">
                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Feature
               </Button>
             </CardContent>
@@ -309,6 +575,7 @@ function FeaturesManager() {
 }
 
 //--- Testimonials Manager ---//
+
 function TestimonialsManager() {
   const settingId = 'homepage_testimonials';
   const { systemSettings, updateSystemSetting, loading } = useAdminStore();
@@ -352,10 +619,18 @@ function TestimonialsManager() {
                     <FormField control={form.control} name={`settings_data.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name={`settings_data.${index}.role`} render={({ field }) => (<FormItem><FormLabel>Role / Title</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
                    </div>
-                   <FormField control={form.control} name={`settings_data.${index}.image`} render={({ field }) => (<FormItem><FormLabel>Avatar Image URL</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                   
+                   {/* === UPDATED: Back to a single ImageUploadField === */}
+                    <ImageUploadField
+                      control={form.control}
+                      name={`settings_data.${index}.image`}
+                      label="Avatar Image"
+                    />
+                   {/* ================================================ */}
                 </div>
               ))}
-               <Button type="button" variant="outline" onClick={() => append({ name: "", role: "", quote: "", image: "https://randomuser.me/api/portraits/lego/1.jpg" })} className="w-full">
+               {/* === UPDATED: `append` now uses single 'image' field === */}
+               <Button type="button" variant="outline" onClick={() => append({ name: "", role: "", quote: "", image: "" })} className="w-full">
                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Testimonial
               </Button>
             </CardContent>
@@ -369,6 +644,8 @@ function TestimonialsManager() {
     </Form>
   );
 }
+
+// === END OF SECTION 3 ===
 
 //--- Sample Papers Manager ---//
 function SamplePapersManager() {
@@ -411,12 +688,34 @@ function SamplePapersManager() {
                    <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
                    <FormField control={form.control} name={`settings_data.${index}.title`} render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
                    <FormField control={form.control} name={`settings_data.${index}.description`} render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                   <FormField control={form.control} name={`settings_data.${index}.link`} render={({ field }) => (<FormItem><FormLabel>PDF Link/URL</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                   <FormField control={form.control} name={`settings_data.${index}.previewImage`} render={({ field }) => (<FormItem><FormLabel>Preview Image URL</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                   
+                   {/* === UPDATED: This remains FileUploadField === */}
+                   <FileUploadField
+                      control={form.control}
+                      name={`settings_data.${index}.link`}
+                      label="PDF File Upload"
+                      accept="application/pdf"
+                   />
+                   {/* ============================================= */}
+                   
+                   {/* === UPDATED: Added fields for light and dark PREVIEW images === */}
+                   <ImageUploadField
+                      control={form.control}
+                      name={`settings_data.${index}.previewImageLight`}
+                      label="Preview Image (Light Mode)"
+                   />
+                   <ImageUploadField
+                      control={form.control}
+                      name={`settings_data.${index}.previewImageDark`}
+                      label="Preview Image (Dark Mode)"
+                   />
+                   {/* =============================================================== */}
+
                    <FormField control={form.control} name={`settings_data.${index}.id`} render={({ field }) => (<FormItem><FormLabel>Unique ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
               ))}
-               <Button type="button" variant="outline" onClick={() => append({ id: "new-paper", title: "", description: "", link: "/samples/new.pdf", previewImage: "https://placehold.co/400x300" })} className="w-full">
+              {/* === UPDATED: `append` now includes light/dark PREVIEW fields === */}
+               <Button type="button" variant="outline" onClick={() => append({ id: "new-paper", title: "", description: "", link: "", previewImageLight: "", previewImageDark: "" })} className="w-full">
                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Sample Paper
               </Button>
             </CardContent>
@@ -433,7 +732,7 @@ function SamplePapersManager() {
 
 
 //=============================================================================
-// 4. MAIN PAGE COMPONENT
+// 5. MAIN PAGE COMPONENT (Unchanged)
 //=============================================================================
 
 export default function HomepageSettingsPage() {
@@ -469,11 +768,9 @@ export default function HomepageSettingsPage() {
                 </TabsContent>
                 <TabsContent value="testimonials">
                     <TestimonialsManager />
-                    <p className="text-center p-8 text-muted-foreground">Testimonials Manager to be implemented here.</p>
                 </TabsContent>
                 <TabsContent value="sample_papers">
                     <SamplePapersManager />
-                     <p className="text-center p-8 text-muted-foreground">Sample Papers Manager to be implemented here.</p>
                 </TabsContent>
             </Tabs>
         </div>

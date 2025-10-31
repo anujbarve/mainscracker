@@ -12,8 +12,7 @@ import {
 } from "@/components/ui/card"
 import { motion } from "framer-motion"
 import SmoothDrawer from "./kokonutui/smooth-drawer"
-import { useHomepageStore } from "@/stores/homepage"
-import { Plan } from "@/stores/admin"
+import { useHomepageStore, Plan } from "@/stores/homepage"
 
 // Helper function to create a feature list from a plan object
 const generateFeatures = (plan: Plan) => {
@@ -146,7 +145,7 @@ export default function Pricing() {
 
                   <CardFooter className="mt-auto">
                     {/* The SmoothDrawer can be configured to handle the purchase logic */}
-                    <SmoothDrawer plan={plan}></SmoothDrawer>
+                    <SmoothDrawer plan={plan as any}></SmoothDrawer>
                   </CardFooter>
                 </Card>
               </motion.div>

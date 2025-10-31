@@ -11,6 +11,14 @@ import {
   OrderWithPlan,
   MentorshipSessionWithMentor,
 } from "./types"; // Import types from the file above
+import { loadRazorpayScript } from "@/lib/load-razorpay"; // ✅ 1. Import the script loader
+
+// ✅ 2. Add Razorpay to the window type
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 // Import HelpArticle and SupportTicket types
 export type HelpArticle = {
@@ -34,7 +42,13 @@ export type SupportTicket = {
   subject: string;
   description: string;
   priority: "low" | "medium" | "high" | "urgent";
-  type: "bug" | "question" | "feature_request" | "billing" | "technical" | "other";
+  type:
+    | "bug"
+    | "question"
+    | "feature_request"
+    | "billing"
+    | "technical"
+    | "other";
   status: "open" | "in_progress" | "resolved" | "closed";
   assigned_to: string | null;
   resolution_notes: string | null;
@@ -63,18 +77,25 @@ type Subject = {
   category: "gs" | "specialized";
 };
 
-type Plan = {
+export type Plan = {
   id: string;
   name: string;
   description: string | null;
   price: number;
   currency: string;
+  type: "one_time" | "recurring"; // ✅ ADDED THIS
   gs_credits_granted: number;
   specialized_credits_granted: number;
   mentorship_credits_granted: number;
 };
 
-export type AnswerStatus = "pending_assignment" | "in_evaluation" | "completed" | "cancelled" | "assigned" | "revision_requested";
+export type AnswerStatus =
+  | "pending_assignment"
+  | "in_evaluation"
+  | "completed"
+  | "cancelled"
+  | "assigned"
+  | "revision_requested";
 
 export type AnswerWithDetails = {
   id: string;
@@ -181,7 +202,12 @@ type StudentState = {
   // Help & Support actions
   fetchHelpArticles: (options?: FetchOptions) => Promise<HelpArticle[]>;
   searchHelpArticles: (query: string) => Promise<HelpArticle[]>;
-  createSupportTicket: (subject: string, description: string, priority: string, type: string) => Promise<string | null>;
+  createSupportTicket: (
+    subject: string,
+    description: string,
+    priority: string,
+    type: string
+  ) => Promise<string | null>;
   fetchSupportTickets: (options?: FetchOptions) => Promise<SupportTicket[]>;
   // Mentorship Feedback & Cancellation actions
   cancelMentorshipSession: (
@@ -519,41 +545,149 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  // --- MUTATION ACTIONS ---
-
   purchasePlan: async (planId: string) => {
     const { user, refreshProfile } = useAuthStore.getState();
-    if (!user) return;
+    const { plans } = get();
+
+    if (!user) {
+      toast.error("You must be logged in to make a purchase.");
+      throw new Error("User not authenticated");
+    }
+
+    const plan = plans?.find((p) => p.id === planId);
+    if (!plan) {
+      toast.error("Plan not found. Please refresh the page.");
+      throw new Error("Plan not found");
+    }
 
     try {
-      const supabase = await createClient();
-
-      const simulatedPaymentChargeId = `sim_${new Date().getTime()}`;
-
-      // Call the RPC function instead of multiple separate queries
-      const { data: newOrderId, error } = await supabase.rpc("purchase_plan", {
-        plan_id_in: planId,
-        order_status_in: "succeeded", // Simulate a successful payment
-        payment_charge_id_in: simulatedPaymentChargeId,
-      });
-
-      if (error) {
-        // The error message from `RAISE EXCEPTION` will be in error.message
-        throw error;
+      // 1. Load the Razorpay script
+      await loadRazorpayScript();
+      if (!window.Razorpay) {
+        throw new Error("Payment gateway failed to load.");
       }
 
-      toast.success("Plan purchased successfully!");
+      // 2. Call the correct backend API based on plan type
+      const endpoint =
+        plan.type === "one_time"
+          ? "/api/payment/create-order"
+          : "/api/payment/create-subscription";
 
-      // Refresh the user's data to reflect the changes made by the function
-      get().fetchUserOrders({ force: true }); // Refresh the order history
-      refreshProfile({ force: true }); // Refresh the profile to get the new credit balance
+      console.log("Creating payment session:", {
+        endpoint,
+        planId: plan.id,
+        planName: plan.name,
+        planType: plan.type,
+        userId: user.id,
+      });
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        console.error("API error:", errData);
+        throw new Error(errData.error || "Failed to create payment session.");
+      }
+
+      const data = await res.json();
+      console.log("Payment session created:", data);
+
+      // Verify notes contain user_id
+      if (!data.notes.user_id) {
+        console.warn("⚠️ Warning: user_id not found in payment notes!");
+        console.warn("This may cause webhook processing to fail.");
+      } else {
+        console.log("✅ user_id confirmed in notes:", data.notes.user_id);
+      }
+
+      // 3. Open the Razorpay Modal
+      return new Promise<void>((resolve, reject) => {
+        const options = {
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+          name: "Mains Cracker",
+          description: `Purchase: ${plan.name}`,
+          prefill: {
+            name: user.full_name || "Student",
+            email: user.email,
+          },
+          theme: {
+            color: "#3399cc",
+          },
+          handler: async (response: any) => {
+            console.log("✅ Payment successful:", response);
+
+            toast.success("Payment successful! Processing your order...");
+
+            // Wait for webhook to process, then refresh data
+            setTimeout(async () => {
+              try {
+                console.log("Refreshing user data...");
+                await Promise.all([
+                  get().fetchUserOrders({ force: true }),
+                  get().fetchUserSubscriptions({ force: true }),
+                  refreshProfile({ force: true }),
+                ]);
+
+                toast.success("Your credits have been added!");
+                console.log("✅ Data refreshed successfully");
+              } catch (err) {
+                console.error("Error refreshing data:", err);
+                toast.info(
+                  "Please refresh the page to see your updated credits."
+                );
+              }
+            }, 3000);
+
+            resolve();
+          },
+          modal: {
+            ondismiss: () => {
+              console.log("Payment modal dismissed");
+              toast.error("Payment was cancelled.");
+              reject(new Error("Payment cancelled"));
+            },
+            confirm_close: true,
+          },
+          notes: data.notes,
+        };
+
+        // Add the correct ID based on plan type
+        if (plan.type === "one_time") {
+          (options as any).order_id = data.id;
+          console.log(
+            "Opening Razorpay for one-time payment. Order ID:",
+            data.id
+          );
+        } else {
+          (options as any).subscription_id = data.id;
+          console.log(
+            "Opening Razorpay for subscription. Subscription ID:",
+            data.id
+          );
+        }
+
+        const rzp = new window.Razorpay(options);
+
+        rzp.on("payment.failed", (response: any) => {
+          console.error("❌ Payment failed:", response.error);
+          toast.error(
+            `Payment Failed: ${
+              response.error.description || "Please try again"
+            }`
+          );
+          reject(new Error(response.error.description || "Payment failed"));
+        });
+
+        rzp.open();
+      });
     } catch (err: any) {
-      // Display the specific error message from the database function
-      toast.error(
-        err.message || "An unexpected error occurred during purchase."
-      );
-      // Optionally re-throw or handle the error further
-      throw err; // Re-throwing allows the calling component to handle it
+      console.error("❌ Purchase plan error:", err);
+      toast.error(err.message || "An unexpected error occurred.");
+      throw err;
     }
   },
 

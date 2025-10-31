@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useStudentStore } from "@/stores/student"; // Make sure path is correct
+import { useStudentStore, Plan } from "@/stores/student";
 
 // Shadcn UI & Icons
 import { Button } from "@/components/ui/button";
@@ -28,16 +28,18 @@ export default function PlansPage() {
     fetchPlans();
   }, [fetchPlans]);
 
-  const handlePurchase = async (planId: string) => {
+const handlePurchase = async (planId: string) => {
     setPurchasingId(planId);
     try {
+      // The store's purchasePlan action now returns a promise
+      // that resolves on success or rejects on failure/dismissal.
       await purchasePlan(planId);
-      // The toast success message is handled inside the store
+      // Success is handled by the store's 'handler'
     } catch (error: any) {
-      // The toast error message is also handled in the store, but you could add more here
-      console.error("Purchase failed:", error);
+      // Failure is handled by the store's 'ondismiss' or 'payment.failed'
+      console.error("Purchase flow failed or was cancelled:", error.message);
     } finally {
-      setPurchasingId(null); // Reset loading state for the button
+      setPurchasingId(null); // Reset loading state
     }
   };
 
@@ -91,33 +93,20 @@ export default function PlansPage() {
 
 // --- Helper Components ---
 
-// Type for a single Plan object (adjust if your schema is different)
-type Plan = {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  currency: string;
-  gs_credits_granted: number;
-  specialized_credits_granted: number;
-  mentorship_credits_granted: number;
-};
-
 // A dedicated component for rendering a single plan card
 const PlanCard = ({
   plan,
   isPurchasing,
   onPurchase,
 }: {
-  plan: Plan;
+  plan: Plan; // ✅ This now uses the imported Plan type
   isPurchasing: boolean;
   onPurchase: () => void;
 }) => {
-  // Assuming price is in cents, format it to a currency string
   const formattedPrice = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: plan.currency || "INR",
-  }).format(plan.price);
+  }).format(plan.price); // This correctly formats the price from your schema (e.g., 100.00)
 
   return (
     <Card className="flex flex-col shadow-md hover:shadow-xl transition-shadow">
@@ -125,7 +114,10 @@ const PlanCard = ({
         <CardTitle className="text-2xl">{plan.name}</CardTitle>
         <div className="my-4">
           <span className="text-5xl font-extrabold">{formattedPrice}</span>
-          <span className="text-muted-foreground">/ month</span>
+          {/* ✅ 3. Display per month/one-time based on plan type */}
+          <span className="text-muted-foreground">
+            {plan.type === "recurring" ? "/ month" : " (one-time)"}
+          </span>
         </div>
         <CardDescription>{plan.description}</CardDescription>
       </CardHeader>

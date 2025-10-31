@@ -1,37 +1,61 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  // 1. Create a response object
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
 
+  // 2. Create the Supabase client
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll();
+        get(name: string) {
+          return request.cookies.get(name)?.value;
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
+        set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({ name, value, ...options });
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          });
+          response.cookies.set({ name, value, ...options });
+        },
+        remove(name: string, options: CookieOptions) {
+          request.cookies.set({ name, value: "", ...options });
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          });
+          response.cookies.set({ name, value: "", ...options });
         },
       },
     }
   );
 
+  // 3. Get user (this will also refresh the session cookie)
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
 
-  // ✅ Define public routes
+  // --- FIX: Skip all redirect logic for API routes ---
+  // The getUser() call above has already refreshed the auth cookie,
+  // so we can now safely return the response.
+  if (pathname.startsWith("/api")) {
+    return response;
+  }
+  // --- End of Fix ---
+
+  // 4. Define public routes
   const publicRoutes = [
     "/",
     "/login",
@@ -46,15 +70,15 @@ export async function middleware(request: NextRequest) {
     "/images/features/student_dashboard.png",
     "/email/invite.html",
     "/email/password-reset.html",
-    "/terms-and-conditions"
+    "/terms-and-conditions",
   ];
 
   const isPublicRoute =
     publicRoutes.includes(pathname) ||
-    pathname.startsWith("/blog") || // blogs are public
-    pathname.startsWith("/images/");
+    pathname.startsWith("/blog") ||
+    pathname.startsWith("/legal");
 
-  // ✅ Redirect unauthenticated users trying to access protected pages
+  // 5. Redirect unauthenticated users
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
@@ -62,6 +86,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // 6. Handle password recovery redirect
   if (
     pathname === "/login" &&
     request.nextUrl.searchParams.get("type") === "recovery"
@@ -71,14 +96,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // ✅ Prevent logged-in users from visiting auth pages
+  // 7. Prevent logged-in users from visiting auth pages
   if (user && ["/login", "/register"].includes(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
   }
 
-  // ✅ Role-based access control
+  // 8. Role-based access control
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
@@ -88,8 +113,11 @@ export async function middleware(request: NextRequest) {
 
     const role = profile?.role ?? "student";
 
-    // Skip redirect for home `/` and `/blog`
-    if (pathname !== "/" && !pathname.startsWith("/blog") && !pathname.startsWith("/legal")) {
+    if (
+      pathname !== "/" &&
+      !pathname.startsWith("/blog") &&
+      !pathname.startsWith("/legal")
+    ) {
       if (role === "student" && !pathname.startsWith("/student")) {
         const url = request.nextUrl.clone();
         url.pathname = "/student";
@@ -110,9 +138,14 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // 9. Return the response (which now contains the updated auth cookie)
   return response;
 }
 
+// I've also made your matcher slightly more specific by adding a trailing slash
+// to prevent matching files that might start with 'api' (e.g., 'apirules.txt')
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|images/).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|api/auth|api/|static|images/.*\\.(?:png|jpg|jpeg|gif|webp|svg)$).*)",
+  ],
 };
