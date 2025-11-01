@@ -50,7 +50,7 @@ export async function middleware(request: NextRequest) {
   // --- FIX: Skip all redirect logic for API routes ---
   // The getUser() call above has already refreshed the auth cookie,
   // so we can now safely return the response.
-  if (pathname.startsWith('/api')) {
+  if (pathname.startsWith("/api")) {
     return response;
   }
   // --- End of Fix ---
@@ -70,7 +70,7 @@ export async function middleware(request: NextRequest) {
     "/images/features/student_dashboard.png",
     "/email/invite.html",
     "/email/password-reset.html",
-    "/terms-and-conditions"
+    "/terms-and-conditions",
   ];
 
   const isPublicRoute =
@@ -113,7 +113,11 @@ export async function middleware(request: NextRequest) {
 
     const role = profile?.role ?? "student";
 
-    if (pathname !== "/" && !pathname.startsWith("/blog") && !pathname.startsWith("/legal")) {
+    if (
+      pathname !== "/" &&
+      !pathname.startsWith("/blog") &&
+      !pathname.startsWith("/legal")
+    ) {
       if (role === "student" && !pathname.startsWith("/student")) {
         const url = request.nextUrl.clone();
         url.pathname = "/student";
@@ -142,6 +146,6 @@ export async function middleware(request: NextRequest) {
 // to prevent matching files that might start with 'api' (e.g., 'apirules.txt')
 export const config = {
   matcher: [
-    "/((?!api/|_next/static/|_next/image/|favicon.ico|images/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/auth|api/|static|images/.*\\.(?:png|jpg|jpeg|gif|webp|svg)$).*)",
   ],
 };
