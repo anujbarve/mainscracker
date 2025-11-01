@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { posts, Post } from './data' // Assuming this is your data source
+import { BlogPost } from '@/lib/blog-types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -34,10 +34,10 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 // ++ REDESIGNED: Featured Post Card for a more immersive look
-const FeaturedPostCard = ({ post }: { post: Post }) => (
+const FeaturedPostCard = ({ post }: { post: BlogPost }) => (
   <Link href={`/blog/${post.slug}`} className="group block">
     <Card className="relative grid min-h-[450px] w-full overflow-hidden rounded-2xl border-none shadow-2xl transition-all duration-500 ease-out group-hover:scale-[1.02]">
-      {/* Background Image */}
+      {/* Background Image */console.log('post.imageUrl', post.imageUrl)}
       <Image
         src={post.imageUrl}
         alt={post.title}
@@ -75,7 +75,7 @@ const FeaturedPostCard = ({ post }: { post: Post }) => (
 
 // ++ REDESIGNED: Standard Post Card for a cleaner, modern feel
 // ++ REDESIGNED v3: Minimalist Horizontal Post "Card"
-const PostCard = ({ post }: { post: Post }) => (
+const PostCard = ({ post }: { post: BlogPost }) => (
   <Link
     href={`/blog/${post.slug}`}
     className="group grid items-start gap-6 rounded-lg p-4 transition-colors hover:bg-accent sm:grid-cols-3"
@@ -197,41 +197,55 @@ export default function BlogListPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [posts, setPosts] = useState<BlogPost[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
 
-  // Memoize unique categories to prevent re-computation
+  // Fetch posts from API
+  useEffect(() => {
+    const fetchPosts = async () => {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const params = new URLSearchParams()
+        if (selectedCategory && selectedCategory !== 'All') {
+          params.append('category', selectedCategory)
+        }
+        if (debouncedSearchQuery) {
+          params.append('search', debouncedSearchQuery)
+        }
+        params.append('limit', '100')
+
+        const response = await fetch(`/api/public/blog?${params.toString()}`)
+        if (!response.ok) {
+          throw new Error('Failed to fetch blog posts')
+        }
+        const data = await response.json()
+        setPosts(data.posts || [])
+      } catch (err: any) {
+        console.error('Error fetching posts:', err)
+        setError(err.message || 'Failed to load blog posts')
+        setPosts([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchPosts()
+  }, [debouncedSearchQuery, selectedCategory])
+
+  // Memoize unique categories from fetched posts
   const categories = useMemo(
     () => ['All', ...Array.from(new Set(posts.map((p) => p.category)))],
-    [],
+    [posts]
   )
 
   const filteredPosts = useMemo(() => {
-    const lowercasedQuery = debouncedSearchQuery.toLowerCase().trim()
-
-    return posts.filter((post) => {
-      // Category filter
-      const categoryMatch =
-        !selectedCategory ||
-        selectedCategory === 'All' ||
-        post.category === selectedCategory
-
-      // Search query filter
-      if (!lowercasedQuery) return categoryMatch
-
-      const titleMatch = post.title.toLowerCase().includes(lowercasedQuery)
-      const descriptionMatch = post.description.toLowerCase().includes(lowercasedQuery)
-      const tagsMatch = post.tags.some((tag) => tag.toLowerCase().includes(lowercasedQuery))
-      const authorMatch = post.author.name.toLowerCase().includes(lowercasedQuery)
-
-      return categoryMatch && (titleMatch || descriptionMatch || tagsMatch || authorMatch)
-    })
-  }, [debouncedSearchQuery, selectedCategory])
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 750)
-    return () => clearTimeout(timer)
-  }, [])
+    // Posts are already filtered by the API based on category and search
+    // Additional client-side filtering can be added here if needed
+    return posts
+  }, [posts])
 
   const clearFilters = () => {
     setSearchQuery('')
@@ -298,7 +312,16 @@ export default function BlogListPage() {
         </div>
 
         {/* Content Section */}
-        {isLoading ? (
+        {error ? (
+          <div className="mt-24 flex flex-col items-center justify-center text-center">
+            <BookOpenText className="h-16 w-16 text-muted-foreground/50" />
+            <h2 className="mt-6 text-2xl font-semibold">Error Loading Posts</h2>
+            <p className="mt-2 max-w-md text-muted-foreground">{error}</p>
+            <Button onClick={() => window.location.reload()} variant="outline" className="mt-6">
+              Retry
+            </Button>
+          </div>
+        ) : isLoading ? (
           <BlogSkeletons />
         ) : filteredPosts.length > 0 ? (
           <>
