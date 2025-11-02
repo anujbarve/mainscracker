@@ -3,42 +3,20 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth";
-import { cn } from "@/lib/utils";
 
 // --- UI Components ---
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // --- Icons ---
 import {
-  IconSearch,
-  IconHelp,
   IconFileText,
   IconMessage,
   IconExternalLink,
-  IconChevronRight,
 } from "@tabler/icons-react";
 
 // --- Types ---
-export type HelpArticle = {
-  id: string;
-  topic: string;
-  slug: string;
-  content: string;
-  keywords: string[];
-  category: string;
-  is_active: boolean;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-  published_at: string | null;
-  faq: boolean;
-};
-
 export type SupportTicket = {
   id: string;
   user_id: string;
@@ -58,12 +36,7 @@ export type SupportTicket = {
 export default function HelpPage() {
   const router = useRouter();
   const { user, profile, loading: authLoading, fetchUser } = useAuthStore();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [helpArticles, setHelpArticles] = useState<HelpArticle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchResults, setSearchResults] = useState<HelpArticle[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Get base path based on user role
   const getBasePath = () => {
@@ -85,75 +58,8 @@ export default function HelpPage() {
       router.replace("/login");
       return;
     }
-    if (user) {
-      fetchHelpData();
-    }
   }, [user, authLoading, router, fetchUser]);
 
-  const fetchHelpData = async () => {
-    setLoading(true);
-    try {
-      // Fetch help articles
-      const { createClient } = await import("@/utils/client");
-      const supabase = createClient();
-      
-      const { data: articles, error: articlesError } = await supabase
-        .from("help_content")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-
-      if (articlesError) throw articlesError;
-
-      setHelpArticles(articles || []);
-    } catch (error) {
-      console.error("Error fetching help data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const { createClient } = await import("@/utils/client");
-      const supabase = createClient();
-      
-      // Use ilike for case-insensitive search across multiple columns
-      const { data, error } = await supabase
-        .from("help_content")
-        .select("*")
-        .eq("is_active", true)
-        .or(`topic.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%`);
-
-      if (error) throw error;
-      setSearchResults(data || []);
-    } catch (error) {
-      console.error("Error searching articles:", error);
-      // Fallback to client-side search if database search fails
-      const query = searchQuery.toLowerCase();
-      const filtered = helpArticles.filter(article => 
-        article.topic.toLowerCase().includes(query) ||
-        article.content.toLowerCase().includes(query) ||
-        article.keywords.some(keyword => keyword.toLowerCase().includes(query))
-      );
-      setSearchResults(filtered);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-
-  const filteredArticles = helpArticles.filter(article => 
-    selectedCategory === "all" || article.category === selectedCategory
-  );
-
-  const categories = ["all", ...new Set(helpArticles.map(article => article.category))];
   const basePath = getBasePath();
 
   if (loading || authLoading) {
@@ -167,139 +73,37 @@ export default function HelpPage() {
         <div className="text-center space-y-4">
           <h1 className="text-3xl font-bold tracking-tight">Help & Support</h1>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Find answers to common questions, browse our knowledge base, or get help from our support team.
+            Get help from our support team or browse our knowledge base for answers to common questions.
           </p>
         </div>
 
-        {/* Search Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <IconSearch className="h-5 w-5" />
-              Search Knowledge Base
-            </CardTitle>
-            <CardDescription>
-              Search through our help articles using keywords
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Search for help articles..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                className="flex-1"
-              />
-              <Button onClick={handleSearch} disabled={isSearching}>
-                <IconSearch className="h-4 w-4 mr-2" />
-                {isSearching ? "Searching..." : "Search"}
-              </Button>
-            </div>
-            
-            {searchResults.length > 0 && (
-              <div className="mt-4 space-y-2">
-                <h3 className="font-semibold">Search Results</h3>
-                {searchResults.map((article) => (
-                  <Card key={article.id} className="cursor-pointer hover:bg-accent" onClick={() => router.push(`${basePath}/help/article/${article.slug}`)}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">{article.topic}</h4>
-                          <p className="text-sm text-muted-foreground">{article.category}</p>
-                        </div>
-                        <IconChevronRight className="h-4 w-4" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* FAQ Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <IconHelp className="h-5 w-5" />
-              Frequently Asked Questions
-            </CardTitle>
-            <CardDescription>
-              Quick answers to common questions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              {helpArticles
-                .filter(article => article.faq === true)
-                .slice(0, 6)
-                .map((article) => (
-                  <Card key={article.id} className="cursor-pointer hover:bg-accent" onClick={() => router.push(`${basePath}/help/article/${article.slug}`)}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">{article.topic}</h4>
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {article.content.substring(0, 100)}...
-                          </p>
-                        </div>
-                        <IconExternalLink className="h-4 w-4" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-            </div>
-            <div className="mt-4 text-center">
-              <Button variant="outline" onClick={() => router.push(`${basePath}/help/articles`)}>
-                View All Articles
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* All Articles Section */}
-        <Card>
+        {/* Knowledge Base Card */}
+        <Card className="border-primary/20 bg-primary/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <IconFileText className="h-5 w-5" />
-              Knowledge Base
+              Knowledge Base & Blog
             </CardTitle>
             <CardDescription>
-              Browse all help articles by category
+              Browse our comprehensive knowledge base with articles, guides, and frequently asked questions
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2 mb-4">
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category === "all" ? "All Categories" : category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredArticles.map((article) => (
-                <Card key={article.id} className="cursor-pointer hover:bg-accent" onClick={() => router.push(`${basePath}/help/article/${article.slug}`)}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant="outline">{article.category}</Badge>
-                      <IconExternalLink className="h-4 w-4" />
-                    </div>
-                    <h4 className="font-medium mb-2">{article.topic}</h4>
-                    <p className="text-sm text-muted-foreground line-clamp-3">
-                      {article.content.substring(0, 150)}...
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Explore our blog and knowledge base to find detailed articles, tutorials, and answers to common questions. 
+                  Search through categorized content and stay updated with the latest information.
+                </p>
+                <Button 
+                  onClick={() => router.push('/blog')} 
+                  className="w-full sm:w-auto"
+                  size="lg"
+                >
+                  <IconExternalLink className="h-4 w-4 mr-2" />
+                  Go to Blog & Knowledge Base
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -355,7 +159,7 @@ function HelpPageSkeleton() {
             <Skeleton className="h-4 w-64" />
           </CardHeader>
           <CardContent>
-            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-20 w-full" />
           </CardContent>
         </Card>
         
@@ -365,11 +169,7 @@ function HelpPageSkeleton() {
             <Skeleton className="h-4 w-64" />
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full" />
-              ))}
-            </div>
+            <Skeleton className="h-24 w-full" />
           </CardContent>
         </Card>
       </div>

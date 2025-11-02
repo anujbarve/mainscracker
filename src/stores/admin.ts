@@ -2023,8 +2023,10 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       const response = await fetch(`/api/admin/blog?${params.toString()}`);
       if (!response.ok) throw new Error("Failed to fetch blog posts");
       const data = await response.json();
-      set({ blogPosts: data.posts || [] });
-      get().setLastFetched(cacheKey, now);
+      set({ 
+        blogPosts: data.posts || [],
+        lastFetched: { ...get().lastFetched, [cacheKey]: now }
+      });
     } catch (err: any) {
       toast.error("Failed to fetch blog posts.");
       set({ blogPosts: [] });
