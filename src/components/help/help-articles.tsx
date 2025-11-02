@@ -109,14 +109,39 @@ export default function HelpArticles() {
       const { createClient } = await import("@/utils/client");
       const supabase = createClient();
       
+      // Fetch only published posts
       const { data, error } = await supabase
         .from("help_content")
         .select("*")
         .eq("is_active", true)
-        .order("sort_order", { ascending: true });
+        .not("published_at", "is", null)
+        .lte("published_at", new Date().toISOString()) // Only show posts published in the past or now
+        .order("sort_order", { ascending: true, nullsFirst: true })
+        .order("updated_at", { ascending: false }); // For non-numbered posts (sort_order = -1)
 
       if (error) throw error;
-      setHelpArticles(data || []);
+
+      // Apply client-side sorting: numbered posts (0-9) first, then non-numbered (-1) by updated_at DESC
+      const sortedArticles = (data || []).sort((a, b) => {
+        const aNumered = a.sort_order >= 0 && a.sort_order <= 9;
+        const bNumbered = b.sort_order >= 0 && b.sort_order <= 9;
+        
+        // Numbered posts come before non-numbered
+        if (aNumered && !bNumbered) return -1;
+        if (!aNumered && bNumbered) return 1;
+        
+        // Both numbered: sort by sort_order ASC
+        if (aNumered && bNumbered) {
+          return a.sort_order - b.sort_order;
+        }
+        
+        // Both non-numbered: sort by updated_at DESC
+        const aUpdated = new Date(a.updated_at).getTime();
+        const bUpdated = new Date(b.updated_at).getTime();
+        return bUpdated - aUpdated;
+      });
+
+      setHelpArticles(sortedArticles);
     } catch (error) {
       console.error("Error fetching help articles:", error);
     } finally {

@@ -37,7 +37,7 @@ function useDebounce<T>(value: T, delay: number): T {
 const FeaturedPostCard = ({ post }: { post: BlogPost }) => (
   <Link href={`/blog/${post.slug}`} className="group block">
     <Card className="relative grid min-h-[450px] w-full overflow-hidden rounded-2xl border-none shadow-2xl transition-all duration-500 ease-out group-hover:scale-[1.02]">
-      {/* Background Image */console.log('post.imageUrl', post.imageUrl)}
+      {/* Background Image */}
       <Image
         src={post.imageUrl}
         alt={post.title}
@@ -242,9 +242,25 @@ export default function BlogListPage() {
   )
 
   const filteredPosts = useMemo(() => {
-    // Posts are already filtered by the API based on category and search
-    // Additional client-side filtering can be added here if needed
-    return posts
+    // Sort: numbered posts (0-9) first by sort_order ASC, then non-numbered (-1) by updated_at DESC
+    return [...posts].sort((a, b) => {
+      const aNumered = a.sort_order >= 0 && a.sort_order <= 9;
+      const bNumbered = b.sort_order >= 0 && b.sort_order <= 9;
+      
+      // Numbered posts come before non-numbered
+      if (aNumered && !bNumbered) return -1;
+      if (!aNumered && bNumbered) return 1;
+      
+      // Both numbered: sort by sort_order ASC
+      if (aNumered && bNumbered) {
+        return a.sort_order - b.sort_order;
+      }
+      
+      // Both non-numbered: sort by updated_at DESC
+      const aUpdated = new Date(a.updated_at).getTime();
+      const bUpdated = new Date(b.updated_at).getTime();
+      return bUpdated - aUpdated;
+    });
   }, [posts])
 
   const clearFilters = () => {

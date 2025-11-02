@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/server";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { adaptHelpContentArrayToBlogPosts } from "@/lib/blog-adapter";
-import { BlogPostInput } from "@/lib/blog-types";
+import { BlogPostInput, BlogPost } from "@/lib/blog-types";
 import { generateSlug, isValidSlug } from "@/lib/blog-adapter";
 
 /**
@@ -15,7 +15,7 @@ import { generateSlug, isValidSlug } from "@/lib/blog-adapter";
  * - includeInactive: Include inactive posts (default: false)
  */
 export async function GET(request: Request) {
-  return withAdminAuth(async (admin) => {
+  return withAdminAuth<{ posts: BlogPost[]; total: number } | { error: string }>(async (admin) => {
     try {
       const { searchParams } = new URL(request.url);
       const category = searchParams.get("category");
@@ -33,8 +33,8 @@ export async function GET(request: Request) {
             full_name
           )
         `)
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: false });
+        .order("sort_order", { ascending: true, nullsFirst: true })
+        .order("updated_at", { ascending: false }); // For non-numbered posts (sort_order = -1)
 
       // Filter by active status
       if (!includeInactive) {
@@ -85,7 +85,7 @@ export async function GET(request: Request) {
  * POST /api/admin/blog
  */
 export async function POST(request: Request) {
-  return withAdminAuth(async (admin) => {
+  return withAdminAuth<{ post: BlogPost } | { error: string }>(async (admin) => {
     try {
       const body: BlogPostInput = await request.json();
 
@@ -120,6 +120,15 @@ export async function POST(request: Request) {
         );
       }
 
+      // Validate sort_order (must be -1 or between 0-9)
+      const sortOrder = body.sort_order ?? -1;
+      if (sortOrder !== -1 && (sortOrder < 0 || sortOrder > 9)) {
+        return NextResponse.json(
+          { error: "Sort order must be -1 (non-numbered) or a number between 0 and 9." },
+          { status: 400 }
+        );
+      }
+
       // Create the post
       const { data, error } = await supabase
         .from("help_content")
@@ -132,7 +141,7 @@ export async function POST(request: Request) {
           category: body.category || "General",
           image_url: body.image_url || null,
           is_active: body.is_active ?? true,
-          sort_order: body.sort_order || 0,
+          sort_order: sortOrder,
           published_at: body.published_at || new Date().toISOString(),
           faq: body.faq || false,
           created_by: admin.user.id,

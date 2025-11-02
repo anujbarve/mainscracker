@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createPublicClient } from "@/utils/public-client";
-import { adaptHelpContentToBlogPost } from "@/lib/blog-adapter";
+import { adaptHelpContentToBlogPost, adaptHelpContentArrayToBlogPosts } from "@/lib/blog-adapter";
 
 /**
  * Public API route to fetch a single blog post by slug

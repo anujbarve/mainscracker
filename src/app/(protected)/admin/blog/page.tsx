@@ -35,15 +35,51 @@ export default function BlogPage() {
 
   const filteredPosts = React.useMemo(() => {
     if (!blogPosts) return [];
-    if (!searchQuery) return blogPosts;
     
-    const query = searchQuery.toLowerCase();
-    return blogPosts.filter((post) =>
-      post.title.toLowerCase().includes(query) ||
-      post.description.toLowerCase().includes(query) ||
-      post.category.toLowerCase().includes(query) ||
-      post.tags.some(tag => tag.toLowerCase().includes(query))
-    );
+    let result = [...blogPosts];
+    
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((post) =>
+        post.title.toLowerCase().includes(query) ||
+        post.description.toLowerCase().includes(query) ||
+        post.category.toLowerCase().includes(query) ||
+        post.tags.some(tag => tag.toLowerCase().includes(query))
+      );
+    }
+    
+    // Sort: published posts first, then non-published at the end
+    // Within each group, numbered posts (0-9) first by sort_order ASC, then non-numbered (-1) by updated_at DESC
+    result.sort((a, b) => {
+      // Determine if posts are published (active and has published_at date)
+      const aPublished = a.is_active && a.published_at !== null;
+      const bPublished = b.is_active && b.published_at !== null;
+      
+      // Published posts come before non-published
+      if (aPublished && !bPublished) return -1;
+      if (!aPublished && bPublished) return 1;
+      
+      // Both published or both non-published: sort by sort_order logic
+      const aNumered = a.sort_order >= 0 && a.sort_order <= 9;
+      const bNumbered = b.sort_order >= 0 && b.sort_order <= 9;
+      
+      // Numbered posts come before non-numbered
+      if (aNumered && !bNumbered) return -1;
+      if (!aNumered && bNumbered) return 1;
+      
+      // Both numbered: sort by sort_order ASC
+      if (aNumered && bNumbered) {
+        return a.sort_order - b.sort_order;
+      }
+      
+      // Both non-numbered: sort by updated_at DESC
+      const aUpdated = new Date(a.updated_at).getTime();
+      const bUpdated = new Date(b.updated_at).getTime();
+      return bUpdated - aUpdated;
+    });
+    
+    return result;
   }, [blogPosts, searchQuery]);
 
   const handleDelete = async (id: string) => {

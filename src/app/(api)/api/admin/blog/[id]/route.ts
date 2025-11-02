@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/server";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { adaptHelpContentToBlogPost } from "@/lib/blog-adapter";
-import { BlogPostInput } from "@/lib/blog-types";
+import { BlogPostInput, BlogPost } from "@/lib/blog-types";
 import { isValidSlug } from "@/lib/blog-adapter";
 
 /**
@@ -13,7 +13,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  return withAdminAuth(async (admin) => {
+  return withAdminAuth<{ post: BlogPost } | { error: string }>(async (admin) => {
     try {
       const { id } = await params;
 
@@ -73,7 +73,7 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  return withAdminAuth(async (admin) => {
+  return withAdminAuth<{ post: BlogPost } | { error: string }>(async (admin) => {
     try {
       const { id } = await params;
       const body: Partial<BlogPostInput> = await request.json();
@@ -87,10 +87,10 @@ export async function PUT(
 
       const supabase = await createClient();
 
-      // Check if post exists
+      // Check if post exists and get current sort_order
       const { data: existing, error: fetchError } = await supabase
         .from("help_content")
-        .select("id, slug")
+        .select("id, slug, sort_order")
         .eq("id", id)
         .single();
 
@@ -123,6 +123,20 @@ export async function PUT(
             { status: 409 }
           );
         }
+      }
+
+      // Validate sort_order if it's being updated
+      if (body.sort_order !== undefined) {
+        const newSortOrder = body.sort_order;
+        
+        // Validate sort_order (must be -1 or between 0-9)
+        if (newSortOrder !== -1 && (newSortOrder < 0 || newSortOrder > 9)) {
+          return NextResponse.json(
+            { error: "Sort order must be -1 (non-numbered) or a number between 0 and 9." },
+            { status: 400 }
+          );
+        }
+        // Reordering is handled by PostgreSQL trigger automatically
       }
 
       // Build update object (only include fields that are provided)
@@ -184,7 +198,7 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  return withAdminAuth(async (admin) => {
+  return withAdminAuth<{ message: string } | { error: string }>(async (admin) => {
     try {
       const { id } = await params;
 

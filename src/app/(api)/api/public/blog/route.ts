@@ -37,8 +37,8 @@ export async function GET(request: Request) {
       .eq("is_active", true)
       .not("published_at", "is", null)
       .lte("published_at", new Date().toISOString()) // Only show posts published in the past or now
-      .order("sort_order", { ascending: true })
-      .order("published_at", { ascending: false });
+      .order("sort_order", { ascending: true, nullsFirst: true })
+      .order("updated_at", { ascending: false }); // For non-numbered posts (sort_order = -1)
 
     // Apply category filter
     if (category && category !== "all") {
