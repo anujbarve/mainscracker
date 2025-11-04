@@ -71,7 +71,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             { title: "Answer Sheets", url: `${basePath}/answersheets` },
             { title: "Mentorships", url: `${basePath}/mentorships` },
             { title: "Support Tickets", url: `${basePath}/support` },
-            { title : "Subjects", url : `${basePath}/subjects`}
+            { title : "Subjects", url : `${basePath}/subjects`},
+            { title: "Blog", url: `${basePath}/blog` }
           ],
         },
         {

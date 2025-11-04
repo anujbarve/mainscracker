@@ -1,23 +1,63 @@
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
-import { posts } from '../data'
+import { BlogPost } from '@/lib/blog-types'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { createPublicClient } from '@/utils/public-client'
 
 // This function tells Next.js which slugs to pre-render at build time.
+// For now, we'll return empty array to use dynamic rendering
+// You can fetch all slugs from the database here if you want static generation
 export async function generateStaticParams() {
-    return posts.map((post) => ({
-        slug: post.slug,
-    }))
+    // Fetch all active blog post slugs from database
+    try {
+        const supabase = createPublicClient();
+        const { data } = await supabase
+            .from("help_content")
+            .select("slug")
+            .eq("is_active", true)
+            .not("published_at", "is", null);
+        
+        return data?.map((post) => ({ slug: post.slug })) || [];
+    } catch (error) {
+        console.error("Error fetching blog post slugs:", error);
+        return [];
+    }
 }
 
 export default async function SingleBlogPage({params}: {params: Promise<{ slug: string }>}) {
     const { slug } = await params;
 
-    const post = posts.find((p) => p.slug === slug)
+    // Fetch post directly from database
+    let post: BlogPost | null = null;
+    try {
+        const supabase = createPublicClient();
+        const { data, error } = await supabase
+            .from("help_content")
+            .select(`
+                *,
+                author_profile:profiles!help_content_created_by_fkey(
+                    id,
+                    full_name
+                )
+            `)
+            .eq("slug", slug)
+            .eq("is_active", true)
+            .not("published_at", "is", null)
+            .lte("published_at", new Date().toISOString()) // Only show posts published in the past or now
+            .single();
+
+        if (!error && data) {
+            // Transform using adapter
+            const { adaptHelpContentToBlogPost } = await import('@/lib/blog-adapter');
+            post = adaptHelpContentToBlogPost(data);
+        }
+    } catch (error) {
+        console.error('Error fetching blog post:', error);
+    }
 
     if (!post) {
         notFound() // If no post is found, show a 404 page

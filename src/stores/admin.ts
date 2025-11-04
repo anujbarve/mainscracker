@@ -371,6 +371,10 @@ type AdminState = {
   systemSettings: SystemSetting[] | null;
   currentSetting: SystemSetting | null;
 
+  // Blog Posts
+  blogPosts: import("@/lib/blog-types").BlogPost[] | null;
+  currentBlogPost: import("@/lib/blog-types").BlogPost | null;
+
   // UI State
   loading: Record<string, boolean>;
   lastFetched: Record<string, number | null>;
@@ -587,6 +591,21 @@ type AdminState = {
     data: Partial<Pick<SystemSetting, "settings_data" | "description">>
   ) => Promise<boolean>;
   //endregion
+
+  //region ------------------- BLOG MANAGEMENT -------------------
+  /** Fetches all blog posts. */
+  fetchBlogPosts: (options?: { includeInactive?: boolean; force?: boolean }) => Promise<void>;
+  /** Fetches a single blog post by its ID. */
+  fetchBlogPostById: (id: string) => Promise<void>;
+  /** Clears the current blog post from state. */
+  clearCurrentBlogPost: () => void;
+  /** Creates a new blog post. */
+  createBlogPost: (data: import("@/lib/blog-types").BlogPostInput) => Promise<boolean>;
+  /** Updates an existing blog post. */
+  updateBlogPost: (id: string, data: Partial<import("@/lib/blog-types").BlogPostInput>) => Promise<boolean>;
+  /** Deletes a blog post (soft delete). */
+  deleteBlogPost: (id: string) => Promise<boolean>;
+  //endregion
 };
 
 export const useAdminStore = create<AdminState>((set, get) => ({
@@ -620,6 +639,8 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   userSubscriptions: null,
   systemSettings: null,
   currentSetting: null,
+  blogPosts: null,
+  currentBlogPost: null,
   loading: {},
   lastFetched: {},
   error: null,
@@ -1978,6 +1999,129 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       return false;
     } finally {
       get().setLoading(`setting_${id}`, false);
+    }
+  },
+  //endregion
+
+  //region ------------------- BLOG MANAGEMENT -------------------
+  fetchBlogPosts: async (options = {}) => {
+    const cacheKey = `blogPosts_${options.includeInactive ? "all" : "active"}`;
+    const now = Date.now();
+    const lastFetched = get().lastFetched[cacheKey] || 0;
+    const cacheAge = 60000; // 1 minute cache
+
+    if (!options.force && now - lastFetched < cacheAge && get().blogPosts) {
+      return;
+    }
+
+    get().setLoading("blogPosts", true);
+    try {
+      const params = new URLSearchParams();
+      if (options.includeInactive) {
+        params.append("includeInactive", "true");
+      }
+      const response = await fetch(`/api/admin/blog?${params.toString()}`);
+      if (!response.ok) throw new Error("Failed to fetch blog posts");
+      const data = await response.json();
+      set({ 
+        blogPosts: data.posts || [],
+        lastFetched: { ...get().lastFetched, [cacheKey]: now }
+      });
+    } catch (err: any) {
+      toast.error("Failed to fetch blog posts.");
+      set({ blogPosts: [] });
+    } finally {
+      get().setLoading("blogPosts", false);
+    }
+  },
+
+  fetchBlogPostById: async (id) => {
+    get().setLoading("blogPost", true);
+    try {
+      const response = await fetch(`/api/admin/blog/${id}`);
+      if (!response.ok) throw new Error("Failed to fetch blog post");
+      const data = await response.json();
+      set({ currentBlogPost: data.post });
+    } catch (err: any) {
+      toast.error("Failed to fetch blog post.");
+      set({ currentBlogPost: null });
+    } finally {
+      get().setLoading("blogPost", false);
+    }
+  },
+
+  clearCurrentBlogPost: () => {
+    set({ currentBlogPost: null });
+  },
+
+  createBlogPost: async (data) => {
+    get().setLoading("createBlogPost", true);
+    try {
+      const response = await fetch("/api/admin/blog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create blog post");
+      }
+      toast.success("Blog post created successfully.");
+      get().fetchBlogPosts({ force: true });
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create blog post.");
+      return false;
+    } finally {
+      get().setLoading("createBlogPost", false);
+    }
+  },
+
+  updateBlogPost: async (id, data) => {
+    get().setLoading(`updateBlogPost_${id}`, true);
+    try {
+      const response = await fetch(`/api/admin/blog/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update blog post");
+      }
+      toast.success("Blog post updated successfully.");
+      get().fetchBlogPosts({ force: true });
+      get().fetchBlogPostById(id); // Refresh current post
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update blog post.");
+      return false;
+    } finally {
+      get().setLoading(`updateBlogPost_${id}`, false);
+    }
+  },
+
+  deleteBlogPost: async (id) => {
+    get().setLoading(`deleteBlogPost_${id}`, true);
+    try {
+      const response = await fetch(`/api/admin/blog/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete blog post");
+      }
+      toast.success("Blog post deleted successfully.");
+      get().fetchBlogPosts({ force: true });
+      if (get().currentBlogPost?.id === id) {
+        set({ currentBlogPost: null });
+      }
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete blog post.");
+      return false;
+    } finally {
+      get().setLoading(`deleteBlogPost_${id}`, false);
     }
   },
   //endregion
