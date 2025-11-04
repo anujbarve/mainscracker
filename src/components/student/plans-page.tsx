@@ -19,14 +19,21 @@ import { toast } from "sonner"; // Using sonner from your store example
 
 // --- Main Page Component ---
 export default function PlansPage() {
-  const { plans, loading, fetchPlans, purchasePlan } = useStudentStore();
+  const {
+    plans,
+    loading,
+    fetchPlans,
+    purchasePlan,
+    subscriptions,
+    fetchUserSubscriptions,
+  } = useStudentStore();
   // State to track which specific plan is being purchased
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetch plans when the component mounts
     fetchPlans();
-  }, [fetchPlans]);
+    fetchUserSubscriptions();
+  }, [fetchPlans, fetchUserSubscriptions]);
 
 const handlePurchase = async (planId: string) => {
     setPurchasingId(planId);
@@ -42,6 +49,10 @@ const handlePurchase = async (planId: string) => {
       setPurchasingId(null); // Reset loading state
     }
   };
+
+  const activeSubscription = subscriptions?.find(
+    (sub) => sub.status === "active"
+  );
 
   // Main loading state for the whole page
   if (loading && !plans) {
@@ -83,6 +94,7 @@ const handlePurchase = async (planId: string) => {
               plan={plan}
               isPurchasing={purchasingId === plan.id}
               onPurchase={() => handlePurchase(plan.id)}
+              hasActiveSubscription={!!activeSubscription}
             />
           ))}
         </div>
@@ -98,23 +110,33 @@ const PlanCard = ({
   plan,
   isPurchasing,
   onPurchase,
+  hasActiveSubscription
 }: {
   plan: Plan; // ✅ This now uses the imported Plan type
   isPurchasing: boolean;
   onPurchase: () => void;
+  hasActiveSubscription: boolean;
 }) => {
   const formattedPrice = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: plan.currency || "INR",
   }).format(plan.price); // This correctly formats the price from your schema (e.g., 100.00)
 
+  const isRecurring = plan.type === "recurring";
+  const isDisabled = isPurchasing || (isRecurring && hasActiveSubscription);
+  const buttonText = isPurchasing
+    ? "Processing..."
+    : isRecurring && hasActiveSubscription
+    ? "Subscription Active" // New text
+    : "Purchase Plan";
+
   return (
     <Card className="flex flex-col shadow-md hover:shadow-xl transition-shadow">
+      {/* ... (CardHeader and CardContent are unchanged) */}
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">{plan.name}</CardTitle>
         <div className="my-4">
           <span className="text-5xl font-extrabold">{formattedPrice}</span>
-          {/* ✅ 3. Display per month/one-time based on plan type */}
           <span className="text-muted-foreground">
             {plan.type === "recurring" ? "/ month" : " (one-time)"}
           </span>
@@ -132,10 +154,10 @@ const PlanCard = ({
         <Button
           className="w-full"
           onClick={onPurchase}
-          disabled={isPurchasing}
+          disabled={isDisabled} // ✅ 9. Use new disabled logic
         >
           {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isPurchasing ? "Processing..." : "Purchase Plan"}
+          {buttonText} {/* ✅ 10. Use new button text */}
         </Button>
       </CardFooter>
     </Card>

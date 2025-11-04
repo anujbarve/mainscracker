@@ -547,7 +547,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
 
   purchasePlan: async (planId: string) => {
     const { user, refreshProfile } = useAuthStore.getState();
-    const { plans } = get();
+    const { plans, subscriptions } = get();
 
     if (!user) {
       toast.error("You must be logged in to make a purchase.");
@@ -558,6 +558,22 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     if (!plan) {
       toast.error("Plan not found. Please refresh the page.");
       throw new Error("Plan not found");
+    }
+
+    if (plan.type === "recurring") {
+      // Find any subscription that is 'active' or 'trialing'.
+      const activeSubscription = subscriptions?.find(
+        (sub) => sub.status === "active"
+      );
+
+      if (activeSubscription) {
+        // If an active sub exists, block the purchase and inform the user.
+        toast.error(
+          "You already have an active subscription. Please cancel it from your dashboard before purchasing a new one.",
+          { duration: 5000 }
+        );
+        throw new Error("Active subscription already exists.");
+      }
     }
 
     try {
