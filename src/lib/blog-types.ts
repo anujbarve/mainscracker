@@ -71,5 +71,5 @@ export interface BlogPostInput {
 // Default values for missing fields
 export const DEFAULT_BLOG_IMAGE = 'https://images.unsplash.com/photo-1455390582262-044cdead277a?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1673&q=80';
 export const DEFAULT_AUTHOR_NAME = 'The mainscracker Team';
-export const DEFAULT_AUTHOR_AVATAR = 'https://i.pravatar.cc/150?u=team-mainscracker';
+export const DEFAULT_AUTHOR_AVATAR = 'https://i.pinimg.com/originals/fb/6c/1f/fb6c1f3561169051c01cfb74d73d93b7.jpg';
 

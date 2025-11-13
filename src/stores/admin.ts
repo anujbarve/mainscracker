@@ -594,15 +594,23 @@ type AdminState = {
 
   //region ------------------- BLOG MANAGEMENT -------------------
   /** Fetches all blog posts. */
-  fetchBlogPosts: (options?: { includeInactive?: boolean; force?: boolean }) => Promise<void>;
+  fetchBlogPosts: (options?: {
+    includeInactive?: boolean;
+    force?: boolean;
+  }) => Promise<void>;
   /** Fetches a single blog post by its ID. */
   fetchBlogPostById: (id: string) => Promise<void>;
   /** Clears the current blog post from state. */
   clearCurrentBlogPost: () => void;
   /** Creates a new blog post. */
-  createBlogPost: (data: import("@/lib/blog-types").BlogPostInput) => Promise<boolean>;
+  createBlogPost: (
+    data: import("@/lib/blog-types").BlogPostInput
+  ) => Promise<boolean>;
   /** Updates an existing blog post. */
-  updateBlogPost: (id: string, data: Partial<import("@/lib/blog-types").BlogPostInput>) => Promise<boolean>;
+  updateBlogPost: (
+    id: string,
+    data: Partial<import("@/lib/blog-types").BlogPostInput>
+  ) => Promise<boolean>;
   /** Deletes a blog post (soft delete). */
   deleteBlogPost: (id: string) => Promise<boolean>;
   //endregion
@@ -1449,13 +1457,13 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
 
-  updatePlan: async (id: string, data : any) => {
+  updatePlan: async (id: string, data: any) => {
     get().setLoading("currentPlan", true);
     try {
       const supabase = createClient();
 
       const planData = { ...data };
-      if (planData.type === 'one_time') {
+      if (planData.type === "one_time") {
         planData.interval = null;
         planData.interval_count = null;
       }
@@ -1464,7 +1472,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         .from("plans")
         .update(planData)
         .eq("id", id);
-      
+
       if (error) {
         throw error;
       }
@@ -1510,15 +1518,24 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   deletePlan: async (planId) => {
     if (
       !confirm(
-        "Are you sure you want to delete this plan? This action cannot be undone."
+        "Are you sure you want to delete this plan? This will also delete all related orders and subscriptions. This action cannot be undone."
       )
     )
       return false;
+
     get().setLoading(`plan_${planId}`, true);
+
     try {
       const supabase = createClient();
+
+      // Delete related records first
+      await supabase.from("orders").delete().eq("plan_id", planId);
+      await supabase.from("subscriptions").delete().eq("plan_id", planId);
+
+      // Delete the plan
       const { error } = await supabase.from("plans").delete().eq("id", planId);
       if (error) throw error;
+
       toast.success("Plan deleted successfully.");
       get().fetchPlans(true, { force: true });
       get().fetchPlanPurchaseStats({ force: true });
@@ -2023,9 +2040,9 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       const response = await fetch(`/api/admin/blog?${params.toString()}`);
       if (!response.ok) throw new Error("Failed to fetch blog posts");
       const data = await response.json();
-      set({ 
+      set({
         blogPosts: data.posts || [],
-        lastFetched: { ...get().lastFetched, [cacheKey]: now }
+        lastFetched: { ...get().lastFetched, [cacheKey]: now },
       });
     } catch (err: any) {
       toast.error("Failed to fetch blog posts.");
