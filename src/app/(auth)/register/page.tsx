@@ -66,7 +66,7 @@ export default function RegisterPage() {
           <p className="text-sm">Welcome! Sign up to get started.</p>
 
            {/* Social signups */}
-          <div className="mt-6 grid grid-cols-1 gap-3">
+          {/* <div className="mt-6 grid grid-cols-1 gap-3">
             <Button 
               type="button" 
               variant="outline" 
@@ -77,7 +77,7 @@ export default function RegisterPage() {
               <GoogleIcon />
               <span>{loading ? "Signing up..." : "Continue with Google"}</span>
             </Button>
-          </div>
+          </div> */}
 
           <hr className="my-4 border-dashed" />
 

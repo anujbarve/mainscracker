@@ -64,7 +64,7 @@ export default function LoginPage() {
           </div>
 
           {/* Social logins */}
-          <div className="mt-6 grid grid-cols-1 gap-3">
+          {/* <div className="mt-6 grid grid-cols-1 gap-3">
             <Button 
               type="button" 
               variant="outline" 
@@ -75,7 +75,7 @@ export default function LoginPage() {
               <GoogleIcon />
               <span>{loading ? "Signing in..." : "Continue with Google"}</span>
             </Button>
-          </div>
+          </div> */}
 
           <hr className="my-4 border-dashed" />
 
